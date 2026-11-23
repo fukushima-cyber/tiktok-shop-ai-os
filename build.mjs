@@ -55,9 +55,9 @@ const DOCS = [
   { id: 'skill-05', group: '7つのSkill', title: 'Skill 05：独立レッドチーム審査', path: 'skills/05-red-team.md', badge: 'ゲートB', raw: readContent('skills/05-red-team.md') },
   { id: 'skill-06', group: '7つのSkill', title: 'Skill 06：自動動画編集 & 機械検査', path: 'skills/06-editing.md', badge: 'ゲートC', raw: readContent('skills/06-editing.md') },
   { id: 'skill-07', group: '7つのSkill', title: 'Skill 07：投稿パッケージ & 48h PDCA', path: 'skills/07-post-pdca.md', badge: '運用', raw: readContent('skills/07-post-pdca.md') },
-  { id: 'case-senseware', group: '収録済み案件', title: '案件：センスウェア（お手本台本・素材14本）', path: 'cases/senseware.md', badge: '収録済', raw: readContent('cases/senseware.md') },
-  { id: 'case-calm7', group: '収録済み案件', title: '案件：カームセブン（266本調査・素材10本）', path: 'cases/calm7.md', badge: '収録済', raw: readContent('cases/calm7.md') },
-  { id: 'case-assets', group: '収録済み案件', title: '共有素材：Google Drive「TTSオートフロー」', path: 'cases/assets-index.md', badge: 'Drive', raw: readContent('cases/assets-index.md') },
+  { id: 'case-senseware', group: '実例リファレンス（見本）', title: '実例1：センスウェア（お手本台本・素材管理）', path: 'cases/senseware.md', badge: '見本', raw: readContent('cases/senseware.md') },
+  { id: 'case-calm7', group: '実例リファレンス（見本）', title: '実例2：カームセブン（266本リサーチ・主語一致）', path: 'cases/calm7.md', badge: '見本', raw: readContent('cases/calm7.md') },
+  { id: 'case-assets', group: '実例リファレンス（見本）', title: '実例3：Google Drive素材一覧の構成見本', path: 'cases/assets-index.md', badge: '見本', raw: readContent('cases/assets-index.md') },
   { id: 'tpl-account', group: '任意上書きテンプレ', title: 'アカウント上書きテンプレ（任意）', path: 'templates/account-template.md', badge: '任意', raw: readContent('templates/account-template.md') },
   { id: 'tpl-product', group: '任意上書きテンプレ', title: '別商材用・案件ルールテンプレ', path: 'templates/product-template.md', badge: 'コピー用', raw: readContent('templates/product-template.md') },
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },
@@ -294,7 +294,7 @@ const html = `<!doctype html>
 
   <nav class="nav-tabs" aria-label="メインナビゲーション">
     <button class="nav-tab active" data-view="home">使い方（1行貼るだけ）</button>
-    <button class="nav-tab" data-view="docs">OS・7つのSkill・収録案件</button>
+    <button class="nav-tab" data-view="docs">OS・7つのSkill・実例見本</button>
     <button class="nav-tab" data-view="patterns">型インデックス（21企画×20台本）</button>
   </nav>
 
@@ -302,9 +302,9 @@ const html = `<!doctype html>
     <!-- VIEW 1: MINIMAL 1-CLICK START -->
     <section id="view-home" class="view active">
       <div class="hero-card">
-        <h1>Muse / GrokBot にこの1行を貼るだけで動き出します</h1>
+        <h1>どの商材でも、この1行をMuse / GrokBotに貼るだけで動き出します</h1>
         <p class="hero-lead">
-          サイト側での入力や設定は不要です。AIが <code>/llms.txt</code> の自律起動プロトコルを読み込み、必要な質問・標準編集プリセットの適用・企画発散・台本審査・編集まで自動で進めます。
+          サイト側での入力や設定は不要です。扱う商材は自由で、AIが <code>/llms.txt</code> を読んで <strong>公式・公開TikTokの自律リサーチ → 案件設計 → 企画発散 → 1.5秒ビートシート → 口語台本＆独立審査 → 編集</strong> まで一貫して進めます。
         </p>
 
         <div class="copy-box">
@@ -313,22 +313,21 @@ const html = `<!doctype html>
         </div>
 
         <div class="quick-row">
-          <span class="quick-label">商材を指定してすぐ始める（押すだけでコピー）：</span>
-          <button class="btn btn-sm" id="quickSenseware">センスウェアで開始</button>
-          <button class="btn btn-sm" id="quickCalm7">カームセブンで開始</button>
+          <span class="quick-label">すぐ使えるコピー：</span>
+          <button class="btn btn-sm" id="quickWithProduct">商材名を添えて開始する文</button>
           <button class="btn btn-sm" id="quickUrlOnly">URLだけコピー</button>
         </div>
 
         <div class="human-steps">
           <div class="h-step">
             <div class="h-step-num">STEP 1</div>
-            <div class="h-step-title">AIに1行貼る</div>
-            <p class="h-step-desc">上の文をMuse / GrokBotに送るだけ。商材名やURLを添えれば質問なしで即企画に入ります。</p>
+            <div class="h-step-title">AIに1行貼って商材を渡す</div>
+            <p class="h-step-desc">上の文をMuse / GrokBotに送り、やりたい商品名や商品ページURLを伝えるだけ。どんな商材でもOKです。</p>
           </div>
           <div class="h-step">
             <div class="h-step-num">STEP 2</div>
-            <div class="h-step-title">AIが自律で進行</div>
-            <p class="h-step-desc">企画5〜8案の発散、1.5秒ビートシート、口語台本、独立レッドチーム審査までAIが自動で回します。</p>
+            <div class="h-step-title">AIが自律リサーチ＆設計</div>
+            <p class="h-step-desc">AIが公式情報と競合TikTokを自力で調べ、案件ルール作成・企画5〜8案発散・口語台本・独立レッドチーム審査まで自動で回します。</p>
           </div>
           <div class="h-step">
             <div class="h-step-num">STEP 3</div>
@@ -539,8 +538,7 @@ const html = `<!doctype html>
     document.getElementById('openLlmsLink').href = RUNTIME_BASE + '/llms.txt';
     document.getElementById('mainCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
     document.getElementById('topCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
-    document.getElementById('quickSenseware').onclick = () => copyText(llmsPublicUrl + ' を読んで、センスウェアの企画〜台本を進めてください。', 'センスウェア開始文をコピーしました');
-    document.getElementById('quickCalm7').onclick = () => copyText(llmsPublicUrl + ' を読んで、カームセブンの企画〜台本を進めてください。', 'カームセブン開始文をコピーしました');
+    document.getElementById('quickWithProduct').onclick = () => copyText(llmsPublicUrl + ' を読んで、「【商品名やURL】」のリサーチから企画・台本まで進めてください。', '商材名つき開始文をコピーしました');
     document.getElementById('quickUrlOnly').onclick = () => copyText(llmsPublicUrl, 'llms.txt のURLをコピーしました');
 
     // View switching
@@ -552,7 +550,7 @@ const html = `<!doctype html>
 
     // Flow strip
     const flowSteps = [
-      { id: 'skill-01', num: '01', name: '案件オンボーディング', tag: '' },
+      { id: 'skill-01', num: '01', name: '自律リサーチ・案件設計', tag: '' },
       { id: 'skill-02', num: '02', name: '企画発散・選別', tag: 'ゲートA' },
       { id: 'skill-03', num: '03', name: '1.5秒ビートシート', tag: '' },
       { id: 'skill-04', num: '04', name: '口語台本・TTS', tag: '' },

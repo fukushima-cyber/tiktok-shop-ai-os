@@ -1,7 +1,8 @@
-# 共有素材フォルダ案内（変数C：TTSオートフロー）
+# 実例リファレンス3：素材一覧とGoogle Drive管理の見本
 
-> 共有Google Driveフォルダ（ログイン不要）：
-> `https://drive.google.com/drive/folders/1OPd1eGR5EpWh3-QVqDrG1W86MjlGoMuW`
+> **位置づけ**：自分の商材で素材フォルダと `素材一覧.md` をどう管理すればAIが直接ダウンロードして編集できるかの構成見本です（サンプルの共有Driveはログイン不要で閲覧可能）。
+> 自分の商材で運用する場合は `./templates/assets-template.md` を使って自分用の素材一覧を用意してください。
+> サンプル共有Google Driveフォルダ：`https://drive.google.com/drive/folders/1OPd1eGR5EpWh3-QVqDrG1W86MjlGoMuW`
 
 ---
 

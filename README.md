@@ -20,6 +20,6 @@ npm run serve
 - `content/skills/01〜07.md` : 工程別の7 Skill
 - `content/index/patterns.md` : 企画21型×台本20型×カームセブン固有型の1枚軽量インデックス
 - `content/patterns/S01〜S20.md` : 個別台本型の詳細
-- `content/cases/` : センスウェア・カームセブン・共有素材案内
+- `content/cases/` : 実例リファレンス（練り香水・美容液のリサーチ/お手本台本/素材管理の見本）
 - `content/templates/` : 別商材・上書き設定用の任意テンプレート
 - `content/scripts/edit_pipeline_ref.sh` : ffmpeg編集・HLG変換・音量測定・コンタクトシート生成コマンド集
