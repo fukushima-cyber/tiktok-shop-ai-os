@@ -69,6 +69,9 @@ const DOCS = [
 ];
 
 const patternsData = JSON.parse(readContent('data/patterns.json'));
+const universalData = JSON.parse(readContent('data/universal_patterns.json'));
+patternsData.universal = universalData.universal;
+patternsData.adapters = universalData.adapters;
 const patternDetails = {};
 for (const s of patternsData.scripts) {
   patternDetails[s.id] = readContent(`patterns/${s.id}.md`);
@@ -299,7 +302,7 @@ const html = `<!doctype html>
   <nav class="nav-tabs" aria-label="メインナビゲーション">
     <button class="nav-tab active" data-view="home">使い方（1行貼るだけ）</button>
     <button class="nav-tab" data-view="docs">OS・7つのSkill・実例見本</button>
-    <button class="nav-tab" data-view="patterns">型インデックス（21企画×20台本）</button>
+    <button class="nav-tab" data-view="patterns">型インデックス（全ジャンル24型＋実測41型）</button>
   </nav>
 
   <main class="container">
@@ -371,20 +374,22 @@ const html = `<!doctype html>
     <section id="view-patterns" class="view">
       <div class="section-card">
         <div class="doc-header" style="margin-bottom:14px;">
-          <h2 style="margin:0;">軽量型インデックス（21企画型 × 20台本型 × カームセブン固有型）</h2>
+          <h2 style="margin:0;">軽量型インデックス（全ジャンル汎用24型 ＋ 6ジャンル別ルール ＋ 実測21企画×20台本）</h2>
           <div class="doc-actions">
             <button class="btn btn-sm" id="copyPatternsUrlBtn">URLをコピー</button>
             <a class="btn btn-sm" id="openPatternsMdLink" target="_blank" rel="noopener">生patterns.mdを開く</a>
           </div>
         </div>
         <p class="section-sub">
-          台本型（S01〜S20）の行をクリックすると詳細テンプレートを確認できます。完成尺は全型共通で <strong>15〜25秒（1.2倍速後）</strong> に収めます。
+          美容以外のガジェット・食品・日用品・アパレル・健康雑貨でもそのまま使える <strong>全ジャンル汎用24型（G01〜G24）</strong> と、Muse内で勝った型が自動で溜まる <code>local_patterns.json</code> を組み合わせて企画します。台本型（S01〜S20）の行をクリックすると詳細テンプレートを確認できます。
         </p>
         <div class="filter-bar">
-          <input type="search" id="patSearch" placeholder="キーワード検索（例：香水、逆張り、本音、検証、講座、対人ショック）" />
+          <input type="search" id="patSearch" placeholder="キーワード検索（例：ガジェット、食品、★1、逆張り、時短、Dupe、開封、コメント）" />
           <select id="patTab">
-            <option value="planning">企画型（全21型）</option>
-            <option value="scripts">台本型（全20型・詳細あり）</option>
+            <option value="universal">全ジャンル汎用 企画型（全24型：G01〜G24）</option>
+            <option value="adapters">ジャンル別アダプター（6領域：強い画・NG境界）</option>
+            <option value="planning">美容実測 企画型（全21型：P01〜P22）</option>
+            <option value="scripts">台本骨組み型（全20型：S01〜S20・詳細あり）</option>
             <option value="calm7">カームセブン固有型（266本調査）</option>
           </select>
           <select id="patSort">
@@ -395,12 +400,13 @@ const html = `<!doctype html>
           </select>
         </div>
         <div class="chip-row" id="productChips">
-          <button class="chip active" data-prod="">すべての商材</button>
-          <button class="chip" data-prod="香水">香水</button>
-          <button class="chip" data-prod="スキンケア">スキンケア</button>
-          <button class="chip" data-prod="コスメ">コスメ</button>
-          <button class="chip" data-prod="ヘアケア">ヘアケア</button>
-          <button class="chip" data-prod="メンズ美容">メンズ美容</button>
+          <button class="chip active" data-prod="">すべて</button>
+          <button class="chip" data-prod="ガジェット">ガジェット</button>
+          <button class="chip" data-prod="食品">食品</button>
+          <button class="chip" data-prod="日用品">日用品</button>
+          <button class="chip" data-prod="アパレル">アパレル</button>
+          <button class="chip" data-prod="美容">美容・香水</button>
+          <button class="chip" data-prod="健康">健康雑貨</button>
         </div>
         <div class="table-wrap">
           <table class="data-table" id="patTable"></table>
@@ -623,23 +629,48 @@ const html = `<!doctype html>
       const tab = patTab.value;
       const q = patSearch.value.trim().toLowerCase();
       const sort = patSort.value;
-      document.getElementById('productChips').style.display = tab === 'planning' ? 'flex' : 'none';
+      document.getElementById('productChips').style.display = (tab === 'universal' || tab === 'planning') ? 'flex' : 'none';
+      patSort.style.display = (tab === 'universal' || tab === 'adapters') ? 'none' : 'inline-block';
 
       let list = [...DATA.patterns[tab]];
-      if (tab === 'planning' && activeProd) {
-        list = list.filter(item => (item.products || '').includes(activeProd));
+      if (tab === 'universal' && activeProd) {
+        list = list.filter(item => (item.genres || '').includes(activeProd) || (item.genres || '').includes('全ジャンル'));
+      } else if (tab === 'planning' && activeProd) {
+        list = list.filter(item => (item.products || '').includes(activeProd) || (activeProd === '美容' && /コスメ|スキンケア|香水|ヘアケア/.test(item.products || '')));
       }
       if (q) {
         list = list.filter(item => JSON.stringify(item).toLowerCase().includes(q));
       }
-      list.sort((a, b) => {
-        if (sort === 'views') return parseNum(b.median_views) - parseNum(a.median_views);
-        if (sort === 'like') return parseNum(b.median_like_rate) - parseNum(a.median_like_rate);
-        if (sort === 'n') return (b.n || 0) - (a.n || 0);
-        return String(a.id).localeCompare(String(b.id));
-      });
+      if (tab !== 'universal' && tab !== 'adapters') {
+        list.sort((a, b) => {
+          if (sort === 'views') return parseNum(b.median_views) - parseNum(a.median_views);
+          if (sort === 'like') return parseNum(b.median_like_rate) - parseNum(a.median_like_rate);
+          if (sort === 'n') return (b.n || 0) - (a.n || 0);
+          return String(a.id).localeCompare(String(b.id));
+        });
+      }
 
-      if (tab === 'planning') {
+      if (tab === 'universal') {
+        patTable.innerHTML = '<thead><tr><th>ID</th><th>群</th><th>企画型</th><th>合うジャンル</th><th>冒頭0〜2秒フック例</th><th>強い画（顔なし対応）</th><th>相性台本</th><th>主KPI</th></tr></thead><tbody>'
+          + list.map(u => '<tr>'
+            + '<td><code>' + esc(u.id) + '</code></td>'
+            + '<td><span class="tag-neutral">' + esc(u.group) + '</span></td>'
+            + '<td><strong>' + esc(u.name) + '</strong></td>'
+            + '<td>' + esc(u.genres) + '</td>'
+            + '<td>' + esc(u.hook) + '</td>'
+            + '<td>' + esc(u.visual) + '</td>'
+            + '<td>' + (u.scripts || []).map(x => '<code>' + esc(x) + '</code>').join(' ') + '</td>'
+            + '<td><span class="tag-ok">' + esc(u.kpi) + '</span></td>'
+            + '</tr>').join('') + '</tbody>';
+      } else if (tab === 'adapters') {
+        patTable.innerHTML = '<thead><tr><th>ジャンル</th><th>0〜3秒で勝てる強い画</th><th>買い手が必ず気にする納得要素</th><th>絶対NG境界（法務・信頼）</th></tr></thead><tbody>'
+          + list.map(a => '<tr>'
+            + '<td><strong>' + esc(a.genre) + '</strong></td>'
+            + '<td>' + esc(a.strong_visual) + '</td>'
+            + '<td>' + esc(a.must_answer) + '</td>'
+            + '<td><span style="color:var(--gate);">' + esc(a.ng) + '</span></td>'
+            + '</tr>').join('') + '</tbody>';
+      } else if (tab === 'planning') {
         patTable.innerHTML = '<thead><tr><th>ID</th><th>企画型</th><th>誰に / 状況・悩み</th><th>切り口</th><th>合う商材</th><th class="num">再生中央値</th><th class="num">いいね率</th><th class="num">n</th><th>相性の良い台本型</th></tr></thead><tbody>'
           + list.map(p => '<tr>'
             + '<td><code>' + esc(p.id) + '</code></td>'

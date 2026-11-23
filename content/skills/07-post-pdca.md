@@ -56,8 +56,14 @@ python3 account_tracker_ref.py sync --handle @your_account --state ./account_sta
 
 ※広告配信（Spark Ads）は有機判定から分離し、注文数・保存率ベースで別枠評価する。
 
-### 次回企画（Skill 02）への自動引き継ぎ
-`account_report.md` に出力された **「勝ち型」「撤退済み型」「直近使用型」** をそのまま Skill 02 の入力として渡し、以下の次回ブリーフを出力する。
+### 次回企画（Skill 02）への自動引き継ぎ & ローカル勝ち型の自動成長
+- `account_tracker_ref.py sync` / `annotate` を実行すると、48h判定で **「① 勝ち型」になった型は自動的に `local_patterns.json` 内で `verified` へ昇格** し、実績本数・最高再生・注文数が蓄積されます。
+- 次回の Skill 02 では、OS本体の汎用24型に加えてこの `local_patterns.json` を自動で読み込むため、**自分のジャンルを使うほどMuse自身が特化・進化** します。
+- 根拠2本以上（48h勝ち型×2本以上）が溜まったら、次を実行して公開OS本体へ還元できる提案リストを出力します（本体への反映は汚染防止のため管理者の承認制）。
+  ```bash
+  python3 account_tracker_ref.py export-candidates --patterns ./ledger/local_patterns.json --out ./ledger/os_pattern_proposals.md
+  ```
+- 毎回 `account_report.md` の **「勝ち型」「撤退済み型」「直近使用型」** をそのまま Skill 02 へ渡し、以下の次回ブリーフを出力する。
 
 ```markdown
 # 48h自動集計 & 次回制作ブリーフ（@アカウント名）
