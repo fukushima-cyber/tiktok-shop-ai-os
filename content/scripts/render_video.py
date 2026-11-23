@@ -186,6 +186,22 @@ def measure_ebur128(mp4_path: str) -> dict:
     }
 
 
+ALLOWED_VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
+
+
+def validate_real_video_source(src: str, cid: int) -> None:
+    """AI生成静止画スライドやffmpeg合成入力(lavfi等)の混入をコードレベルで拒否する"""
+    if not src or src.startswith(("lavfi:", "color=", "testsrc", "smptebars")):
+        raise ValueError(f"Cut {cid}: 合成・ダミー映像の生成は禁止されています（実写動画ファイルを指定してください）: {src}")
+    if not os.path.isfile(src):
+        raise ValueError(f"Cut {cid}: 実在する動画ファイルが見つかりません（勝手に生成せず依頼者へ不足素材を伝えてください）: {src}")
+    ext = os.path.splitext(src)[1].lower()
+    if ext not in ALLOWED_VIDEO_EXTS:
+        raise ValueError(
+            f"Cut {cid}: 静止画や非動画ファイル（{ext}）は素材として禁止です。実写動画ファイル（{sorted(ALLOWED_VIDEO_EXTS)}）のみ使用してください。"
+        )
+
+
 def render(plan: dict, out_dir: str) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     speed = float(plan.get("speed", 1.2))
@@ -208,6 +224,7 @@ def render(plan: dict, out_dir: str) -> dict:
         cut_metas = []
         total_pre_speed = 0.0
         for c in cuts:
+            validate_real_video_source(str(c.get("source") or ""), c["id"])
             zoom = float(c.get("zoom", 1.0))
             slow = float(c.get("slow_pts", 1.0))
             if zoom > 2.0 + 1e-6:
