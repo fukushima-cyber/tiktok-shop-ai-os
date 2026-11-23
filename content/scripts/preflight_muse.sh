@@ -16,7 +16,11 @@ for cmd in python3 ffmpeg ffprobe curl; do
 done
 
 echo ""
-echo "=== 2. Python補助ツール確認（edge-tts / yt-dlp / gdown） ==="
+echo "=== 2. Python補助ツール確認（pillow / edge-tts / yt-dlp / gdown） ==="
+python3 -c "import PIL" 2>/dev/null && echo "[OK] pillow" || {
+  echo "[INFO] pillow 未導入。pip 導入を試みます..."
+  python3 -m pip install --user --quiet pillow 2>/dev/null && echo "[INSTALLED] pillow" || echo "[WARN] pillow の自動導入に失敗"
+}
 for pkg in edge-tts yt-dlp gdown; do
   if command -v "$pkg" >/dev/null 2>&1; then
     echo "[OK] $pkg"

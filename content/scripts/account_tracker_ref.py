@@ -16,6 +16,7 @@ TikTok Shop AI運用OS：自アカウント自動集計 & 48h PDCA トラッカ�
   - 公開APIがWAFや仕様変更で一時的に取得できない場合は、推測で数値を埋めずエラーを返します。
 """
 
+from __future__ import annotations
 import argparse
 import datetime as dt
 import json

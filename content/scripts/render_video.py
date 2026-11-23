@@ -2,52 +2,31 @@
 """
 TikTok Shop AI運用OS：Muse.ai / GrokBot 向け JSON駆動 本番動画レンダリングエンジン（Skill 06）
 
-ffmpeg の長大なコマンド文字列をAIが手組みして記号・改行・色空間・音量で失敗する事故を防ぐため、
-ビートシート＋台本JSON（plan.json）から以下を一発で自動実行します。
-  1. 日本語フォント自動検出（豆腐文字防止）
-  2. カット切り出し・2.0倍以内寄せクロップ・1.1倍以内スロー・SDR/HLG色空間統一（色加工・反転なし）
-  3. textfile= 方式によるフレーム厳密テロップ焼き込み（記号・改行でのクラッシュ根絶）
-  4. 音声（TTS生成済みWAVまたは自動edge-tts）＋効果音32bit線形ミックス
-  5. 全体1.2倍速で「本線mp4（効果音あり）」と「ナレのみmp4」の2本書き出し
-  6. 1秒コンタクトシートPNG・ebur128音量測定・完成尺/解像度チェックレポートJSON出力
+特徴:
+  - ffmpeg に drawtext (libfreetype) が入っていない軽量VM/Homebrew環境でも動くよう、
+    Pillow で 1080x1920 の透明PNGテロップをピクセル実測付きで描画し overlay 合成する（Pillow不在時のみ drawtext へ自動フォールバック）。
+  - 日本語フォント自動検出（豆腐文字防止）＋ 記号・改行・クォートでのクラッシュゼロ。
+  - 2.0倍以内寄せ・1.1倍以内スロー・SDR/HLG色空間統一・32bit効果音線形ミックス・全体1.2倍速。
+  - 「本線mp4（効果音あり）」＋「ナレのみmp4」の2本出力＋1秒コンタクトシートPNG＋ebur128音量ログ自動生成。
 
 使い方:
   python3 render_video.py --plan ./plan.json --out-dir ./output
-
-plan.json の最小構造:
-{
-  "title": "sample_cut",
-  "color_mode": "sdr",           # "sdr" or "hlg"（自社素材がHDR HLGなら "hlg"）
-  "speed": 1.2,                  # 仕上げ全体倍速（標準1.2）
-  "voice": "ja-JP-NanamiNeural",
-  "font_path": "",               # 空なら日本語フォントを自動検出
-  "cuts": [
-    {
-      "id": 1,
-      "source": "/path/to/clip1.mp4",
-      "source_is_hlg": false,
-      "start_sec": 0.5,
-      "zoom": 1.0,               # 上限 2.0
-      "slow_pts": 1.0,           # 上限 1.1（口元・手の動きには使わない）
-      "telop": "練り香水、男が買って\\n後悔するところ3つ。",
-      "reading": "ねりこうすい、おとこが かってこうかい するところ みっつ",
-      "audio_wav": "",           # 既存WAVがあれば指定。空なら edge-tts で自動生成
-      "telop_y": 1240,           # 有機: <1500 / 広告安全領域: 240..1260
-      "sfx_path": "",            # 効果音WAV/MP3（任意・要所4〜6か所のみ）
-      "sfx_gain_db": -5.0        # ナレより3〜6dB低く
-    }
-  ]
-}
 """
 
+from __future__ import annotations
 import argparse
 import json
 import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
 
 FONT_CANDIDATES = [
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
@@ -69,6 +48,11 @@ def run(cmd: list[str], capture: bool = False) -> subprocess.CompletedProcess:
         stdout=subprocess.PIPE if capture else None,
         stderr=subprocess.PIPE if capture else None,
     )
+
+
+def ffmpeg_has_filter(name: str) -> bool:
+    res = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], text=True, capture_output=True)
+    return bool(re.search(rf"\b{re.escape(name)}\b", res.stdout))
 
 
 def detect_jp_font(explicit: str = "") -> str:
@@ -116,7 +100,6 @@ def ensure_cut_audio(cut: dict, voice: str, work_dir: str) -> str:
 
     tmp_mp3 = os.path.join(work_dir, f"nar_{cid:02d}.mp3")
     run(["edge-tts", "--voice", voice, "--text", reading, "--write-media", tmp_mp3])
-    # 前後の無音を詰める（1.0x標準速のまま）
     run(
         [
             "ffmpeg", "-y", "-v", "error", "-i", tmp_mp3,
@@ -125,6 +108,63 @@ def ensure_cut_audio(cut: dict, voice: str, work_dir: str) -> str:
         ]
     )
     return out_wav
+
+
+def render_telop_png(
+    text: str,
+    font_path: str,
+    out_png: str,
+    pos_y: int = 1240,
+    font_size: int = 68,
+    fill_rgb: tuple[int, int, int] = (255, 255, 255),
+    max_width: int = 720,
+) -> dict:
+    """1080x1920 透明PNGにテロップを描画し、実測幅(px)と安全領域収まりを返す"""
+    img = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(font_path, font_size)
+    stroke_w = 8
+    line_gap = 14
+
+    raw_lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    # 指定幅(x=180..900 => 720px)を超える行は字を小さくせず自動で改行
+    wrapped = []
+    for ln in raw_lines:
+        cur = ""
+        for ch in ln:
+            test = cur + ch
+            bbox = draw.textbbox((0, 0), test, font=font, stroke_width=stroke_w)
+            if cur and (bbox[2] - bbox[0]) > max_width:
+                wrapped.append(cur)
+                cur = ch
+            else:
+                cur = test
+        if cur:
+            wrapped.append(cur)
+
+    y = pos_y
+    max_measured_w = 0
+    for ln in wrapped:
+        bbox = draw.textbbox((0, 0), ln, font=font, stroke_width=stroke_w)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        max_measured_w = max(max_measured_w, tw)
+        x = int((1080 - tw) / 2)
+        # 影
+        draw.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
+        # 本体＋黒縁
+        draw.text((x, y), ln, font=font, fill=(*fill_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
+        y += th + line_gap
+
+    img.save(out_png, "PNG")
+    return {
+        "lines": wrapped,
+        "max_width_px": max_measured_w,
+        "y_start": pos_y,
+        "y_end": y,
+        "within_x180_900": max_measured_w <= max_width,
+        "above_y1500": y <= 1500,
+    }
 
 
 def escape_drawtext_path(p: str) -> str:
@@ -157,8 +197,14 @@ def render(plan: dict, out_dir: str) -> dict:
     if not cuts:
         raise ValueError("cuts が空です。")
 
+    use_pil_overlay = HAS_PIL
+    has_drawtext = ffmpeg_has_filter("drawtext")
+    if not use_pil_overlay and not has_drawtext:
+        raise RuntimeError(
+            "テロップ描画手段がありません。pip install pillow を実行するか libfreetype 有効な ffmpeg を使ってください。"
+        )
+
     with tempfile.TemporaryDirectory(prefix="tts_render_") as work:
-        # 1) 全カットのナレ音声を先に生成し、実測尺を確定
         cut_metas = []
         total_pre_speed = 0.0
         for c in cuts:
@@ -180,10 +226,11 @@ def render(plan: dict, out_dir: str) -> dict:
         elif est_final_sec < 14.5:
             warnings.append(f"完成見込み尺 {est_final_sec:.2f}秒 が目安15秒未満です")
 
-        # 2) 各カットの映像切り出し＋寄せ＋色統一＋フレーム厳密テロップ
         clip_list_file = os.path.join(work, "clips.txt")
         audio_list_file = os.path.join(work, "audios.txt")
-        text_color = "#BFBFBF" if color_mode == "hlg" else "#FFFFFF"
+        fill_rgb = (191, 191, 191) if color_mode == "hlg" else (255, 255, 255)
+        text_color_hex = "#BFBFBF" if color_mode == "hlg" else "#FFFFFF"
+        telop_checks = []
 
         with open(clip_list_file, "w", encoding="utf-8") as cf, open(audio_list_file, "w", encoding="utf-8") as af:
             for meta in cut_metas:
@@ -195,65 +242,70 @@ def render(plan: dict, out_dir: str) -> dict:
                 sw = int(1080 * zoom // 2) * 2
                 sh = int(1920 * zoom // 2) * 2
                 pos_y = int(c.get("telop_y", 1240))
+                telop_text = (c.get("telop") or "").strip()
 
-                # textfile 書き出し（記号・改行・クォート安全）
-                txt_file = os.path.join(work, f"telop_{cid:02d}.txt")
-                with open(txt_file, "w", encoding="utf-8") as tf:
-                    tf.write((c.get("telop") or "").strip())
-
-                vf_parts = [
+                base_vf = [
                     f"setpts={slow}*PTS",
                     "fps=30",
                     f"scale={sw}:{sh}:force_original_aspect_ratio=increase",
                     "crop=1080:1920",
                 ]
                 if color_mode == "hlg" and not c.get("source_is_hlg", False):
-                    vf_parts += [
+                    base_vf += [
                         "zscale=tin=bt709:pin=bt709:min=bt709:rin=limited:t=linear:p=bt2020",
                         "format=gbrpf32le",
                         "colorchannelmixer=rr=2.0:gg=2.0:bb=2.0",
                         "zscale=tin=linear:t=arib-std-b67:m=bt2020nc:r=limited",
                         "setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc:range=tv",
                     ]
-                if (c.get("telop") or "").strip():
-                    vf_parts.append(
-                        f"drawtext=fontfile='{escape_drawtext_path(font_path)}':"
-                        f"textfile='{escape_drawtext_path(txt_file)}':"
-                        f"fontsize=68:fontcolor={text_color}:borderw=8:bordercolor=black:"
-                        f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={pos_y}"
-                    )
 
                 clip_out = os.path.join(work, f"cut_{cid:02d}.mp4")
-                cmd = [
-                    "ffmpeg", "-y", "-v", "error",
-                    "-ss", str(c.get("start_sec", 0.0)),
-                    "-t", f"{dur:.4f}",
-                    "-i", c["source"],
-                    "-vf", ",".join(vf_parts),
-                    "-t", f"{dur:.4f}",
-                    "-an",
-                ]
-                if color_mode == "hlg":
-                    cmd += [
-                        "-c:v", "libx265", "-profile:v", "main10", "-pix_fmt", "yuv420p10le",
-                        "-crf", "18", "-tag:v", "hvc1",
-                        "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
-                        "-colorspace", "bt2020nc", "-color_range", "tv",
+                v_enc = (
+                    ["-c:v", "libx265", "-profile:v", "main10", "-pix_fmt", "yuv420p10le", "-crf", "18", "-tag:v", "hvc1",
+                     "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-color_range", "tv"]
+                    if color_mode == "hlg"
+                    else ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
+                )
+
+                if telop_text and use_pil_overlay:
+                    png_path = os.path.join(work, f"telop_{cid:02d}.png")
+                    t_info = render_telop_png(telop_text, font_path, png_path, pos_y=pos_y, fill_rgb=fill_rgb)
+                    telop_checks.append({"cut": cid, **t_info})
+                    if not t_info["above_y1500"]:
+                        warnings.append(f"Cut {cid}: テロップ下端 y={t_info['y_end']} が y1500 を超えています")
+                    fc = f"[0:v]{','.join(base_vf)}[bg];[bg][1:v]overlay=0:0:shortest=1[v]"
+                    cmd = [
+                        "ffmpeg", "-y", "-v", "error",
+                        "-ss", str(c.get("start_sec", 0.0)), "-t", f"{dur:.4f}", "-i", c["source"],
+                        "-loop", "1", "-t", f"{dur:.4f}", "-i", png_path,
+                        "-filter_complex", fc, "-map", "[v]", "-t", f"{dur:.4f}", "-an", *v_enc, clip_out,
                     ]
                 else:
-                    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
-                cmd.append(clip_out)
+                    if telop_text and has_drawtext:
+                        txt_file = os.path.join(work, f"telop_{cid:02d}.txt")
+                        with open(txt_file, "w", encoding="utf-8") as tf:
+                            tf.write(telop_text)
+                        base_vf.append(
+                            f"drawtext=fontfile='{escape_drawtext_path(font_path)}':"
+                            f"textfile='{escape_drawtext_path(txt_file)}':"
+                            f"fontsize=68:fontcolor={text_color_hex}:borderw=8:bordercolor=black:"
+                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={pos_y}"
+                        )
+                    cmd = [
+                        "ffmpeg", "-y", "-v", "error",
+                        "-ss", str(c.get("start_sec", 0.0)), "-t", f"{dur:.4f}", "-i", c["source"],
+                        "-vf", ",".join(base_vf), "-t", f"{dur:.4f}", "-an", *v_enc, clip_out,
+                    ]
+
                 run(cmd)
                 cf.write(f"file '{clip_out}'\n")
                 af.write(f"file '{meta['wav']}'\n")
 
-        # 3) 映像連結 & ナレ連結
         concat_vid = os.path.join(work, "concat_vid.mp4")
         concat_nar = os.path.join(work, "concat_nar.wav")
         run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", clip_list_file, "-c", "copy", concat_vid])
         run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", audio_list_file, "-c:a", "pcm_f32le", concat_nar])
 
-        # 4) 効果音 32bit線形ミックス（指定がある場合のみ）
         sfx_entries = [m for m in cut_metas if m["cut"].get("sfx_path") and os.path.isfile(m["cut"]["sfx_path"])]
         if len(sfx_entries) > 6:
             warnings.append(f"効果音数が {len(sfx_entries)} か所です（目安4〜6か所）")
@@ -280,7 +332,6 @@ def render(plan: dict, out_dir: str) -> dict:
         else:
             shutil.copyfile(concat_nar, mixed_wav)
 
-        # 5) 全体倍速で2本書き出し（本線＋ナレのみ）
         out_main = os.path.join(out_dir, f"{title}_main_sfx.mp4")
         out_nar = os.path.join(out_dir, f"{title}_nar_only.mp4")
         for wav_in, mp4_out in [(mixed_wav, out_main), (concat_nar, out_nar)]:
@@ -299,7 +350,6 @@ def render(plan: dict, out_dir: str) -> dict:
                 ]
             )
 
-        # 6) コンタクトシート＆機械検査レポート
         contact_png = os.path.join(out_dir, f"{title}_contact_sheet.png")
         run(["ffmpeg", "-y", "-v", "error", "-i", out_main, "-vf", "fps=1,scale=270:-1,tile=5x5", "-frames:v", "1", contact_png])
 
@@ -309,6 +359,7 @@ def render(plan: dict, out_dir: str) -> dict:
 
         report = {
             "title": title,
+            "telop_engine": "pillow_overlay" if use_pil_overlay else "ffmpeg_drawtext",
             "color_mode": color_mode,
             "font_used": font_path,
             "speed": speed,
@@ -319,6 +370,7 @@ def render(plan: dict, out_dir: str) -> dict:
                 "nar_only_mp4": out_nar,
                 "contact_sheet_png": contact_png,
             },
+            "telop_checks": telop_checks,
             "loudness_main": loud_main,
             "loudness_nar_only": loud_nar,
             "sfx_count": len(sfx_entries),
