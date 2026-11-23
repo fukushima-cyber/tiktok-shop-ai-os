@@ -9,8 +9,9 @@
 
 ## 自律起動プロトコル（AIは読んだ瞬間にこの順で動く）
 
-### Step 0：基本OSを1回だけ読む
+### Step 0：基本OSとMuse永続セットアップ（初回のみ）
 - 定数OS（伸びる原理8つ・3段階CV評価軸・薬機法・**編集の標準プリセット**）: `./core/00-os-principles.md`
+- **Meta Muse (`muse.ai`) で実行している場合**：初回のみ `./muse/SKILL.md` を読み、自分のVM（`~/workspace/custom-skills/tiktok-shop-os/SKILL.md`）へ保存し、`./scripts/preflight_muse.sh` で環境診断（ffmpeg・日本語フォント・Google Drive Connector・作業フォルダ作成）を完了させる。2回目以降はローカル記憶から即座に起動する。
 
 ### Step 1：ユーザーの最初のメッセージを見て自動分岐する（長い前置き・OS説明は禁止）
 - **ケースA：商材名・商品URL・メモが渡されている（通常ルート）**
@@ -53,8 +54,11 @@
 6. 素材収集・自動カット編集 & 機械検査（ゲートC）: `./skills/06-editing.md`
 7. 自アカウント自動集計・投稿パッケージ & 48h PDCAループ: `./skills/07-post-pdca.md`
 
-### 2. 自動化スクリプト（GrokBot / ローカル仮想環境でそのまま実行）
-- 素材収集（Drive/RED）・自動検品・カット・寄せ・テロップ・1.2x編集コマンド集: `./scripts/edit_pipeline_ref.sh`
+### 2. Muse.ai ネイティブ定義 & 自動化スクリプト（VMでそのまま実行）
+- Muse.ai カスタムスキル本体（`SKILL.md` 永続インストール用）: `./muse/SKILL.md`
+- Muse VM 環境診断 & 日本語フォント/ツール自動セットアップ: `./scripts/preflight_muse.sh`
+- JSON駆動 本番動画レンダリングエンジン（カット・寄せ・`textfile`テロップ・1.2x・2本出力・検査）: `./scripts/render_video.py`
+- 素材収集（Drive/RED）・自動検品・カット・編集シェルスクリプト集: `./scripts/edit_pipeline_ref.sh`
 - 自アカウント公開投稿の自動集計・24h/48hスナップ・3段階PDCA台帳スクリプト: `./scripts/account_tracker_ref.py`
 
 ### 3. 軽量型インデックス（1枚完結）

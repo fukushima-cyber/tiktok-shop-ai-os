@@ -10,14 +10,17 @@
 
 `./scripts/edit_pipeline_ref.sh` の関数を使って素材を手元に集め、編集前に必ず全ファイルの中身を検査します。
 
-### 1. Google Drive からの収集
-- **単体ファイルIDが分かっている場合**：`https://drive.google.com/uc?export=download&id=<FILE_ID>` で直接ダウンロード（`download_gdrive_file`）。
-- **共有フォルダURLだけ渡された場合**：`gdown --folder "<フォルダURL>"` で丸ごと取得（`download_gdrive_folder`）。ログイン必須で開けない場合は推測せず止まって共有設定の変更を依頼する。
+### 1. Google Drive からの収集（2段構え）
+- **Muse.ai 優先ルート**：Museの **Google Drive Connector** が接続済みなら、コネクタ経由でフォルダ名・ファイル名から直接取得する（大容量動画でも安定し、書き出した完成mp4もDriveへ戻して共有できる）。
+- **共有URLルート（Connector未接続時）**：単体ファイルIDなら `download_gdrive_file`、共有フォルダURLなら `gdown --folder`（`download_gdrive_folder`）。ログイン必須で開けない場合は推測せず止まって共有設定の変更を依頼する。
 
-### 2. RED（小紅書）・フリー素材からの収集
+### 2. RED（小紅書）・フリー素材からの収集（ブロック時フォールバック付き）
 - 商品アップは必ず自社素材を使う。生活・物語パートの絵が足りないときだけ RED の公開投稿ページから動画のみを取得する（`yt-dlp` / `download_public_video`）。
-- **厳守**：他人のアカウントでのログイン、Cookieを使ったbot/WAF回避、CAPTCHA突破は一切禁止。取得できない場合は別の公開動画またはフリー素材（Pexels / Mixkit）へ切り替える。
+- **Muse（データセンターIP / Sentinelプロキシ）でのブロック対策**：REDや外部サイトでCAPTCHA・ログイン壁・403が出た場合、**Cookie偽装や回避は一切行わず**、即座に ①ユーザーのGoogle Drive内素材 → ②公開フリー素材（Pexels / Mixkit）→ ③依頼者へ「不足している生活カットだけDriveに追加してほしい」とピンポイント依頼、へ切り替える。
 - なるべく1人の投稿者で揃え、手元や部屋が別人にみえないようにする。
+
+### 2.5. 動画レンダリングの実行方式（失敗防止）
+- 長大なffmpegワンライナーを手組みすると日本語記号（`'` `:` `%`）や改行・フォント欠落で失敗しやすいため、**まず `./scripts/preflight_muse.sh` で日本語フォントを確認し、ビートシートを `plan.json` にして `./scripts/render_video.py` で一発レンダリングする** ことを標準とする。
 
 ### 3. 全素材の自動検品（ファイル名だけで選ばない）
 `inspect_assets_dir` を実行し、全動画の `ffprobe` 仕様表（尺・解像度・fps・SDR/HDR・音声有無）と **頭(10%)・中(50%)・終わり(90%)の3枚連結プレビュー画像** を生成して目視（ビジョン確認）する。

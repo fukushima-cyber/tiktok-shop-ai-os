@@ -47,6 +47,7 @@ fs.writeFileSync(path.join(DIST_DIR, 'llms.txt'), expandedLlms, 'utf8');
 // Collect all docs for embedding into the zero-dependency SPA portal
 const DOCS = [
   { id: 'llms', group: 'AI入口', title: 'llms.txt（自律起動プロトコル）', path: 'llms.txt', badge: 'AI入口', raw: expandedLlms },
+  { id: 'muse-skill', group: 'AI入口', title: 'muse/SKILL.md（Muse.ai 永続インストール用）', path: 'muse/SKILL.md', badge: 'Muse用', raw: readContent('muse/SKILL.md') },
   { id: 'core-00', group: '定数OS', title: '00 定数OS・伸びる原理8つ・標準プリセット', path: 'core/00-os-principles.md', badge: '必読', raw: readContent('core/00-os-principles.md') },
   { id: 'skill-01', group: '7つのSkill', title: 'Skill 01：案件オンボーディング & 競合リサーチ', path: 'skills/01-onboarding.md', badge: '導入', raw: readContent('skills/01-onboarding.md') },
   { id: 'skill-02', group: '7つのSkill', title: 'Skill 02：企画・インサイト発散 & 選別', path: 'skills/02-planning.md', badge: 'ゲートA', raw: readContent('skills/02-planning.md') },
@@ -61,7 +62,9 @@ const DOCS = [
   { id: 'tpl-account', group: '任意上書きテンプレ', title: 'アカウント上書きテンプレ（任意）', path: 'templates/account-template.md', badge: '任意', raw: readContent('templates/account-template.md') },
   { id: 'tpl-product', group: '任意上書きテンプレ', title: '別商材用・案件ルールテンプレ', path: 'templates/product-template.md', badge: 'コピー用', raw: readContent('templates/product-template.md') },
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },
-  { id: 'script-ffmpeg', group: '自動化スクリプト', title: 'edit_pipeline_ref.sh（Drive/RED収集・カット・編集・検査）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
+  { id: 'script-preflight', group: '自動化スクリプト', title: 'preflight_muse.sh（Muse環境診断・日本語フォント導入）', path: 'scripts/preflight_muse.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/preflight_muse.sh') + '\n```' },
+  { id: 'script-render', group: '自動化スクリプト', title: 'render_video.py（JSON駆動 本番動画レンダリング）', path: 'scripts/render_video.py', badge: 'Python', raw: '```python\n' + readContent('scripts/render_video.py') + '\n```' },
+  { id: 'script-ffmpeg', group: '自動化スクリプト', title: 'edit_pipeline_ref.sh（Drive/RED収集・自動検品・カット）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
   { id: 'script-tracker', group: '自動化スクリプト', title: 'account_tracker_ref.py（自アカウント自動集計・48h PDCA）', path: 'scripts/account_tracker_ref.py', badge: 'Python', raw: '```python\n' + readContent('scripts/account_tracker_ref.py') + '\n```' },
 ];
 
@@ -535,7 +538,7 @@ const html = `<!doctype html>
 
     // 1-line AI commands
     const llmsPublicUrl = PUBLIC_BASE + '/llms.txt';
-    const defaultCmd = llmsPublicUrl + ' を読んで、このOSどおりに進めてください。';
+    const defaultCmd = llmsPublicUrl + ' を読んで、このOSを私のMuse環境に永続セットアップしてから進めてください。';
     document.getElementById('oneLineCommand').textContent = defaultCmd;
     document.getElementById('openLlmsLink').href = RUNTIME_BASE + '/llms.txt';
     document.getElementById('mainCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
