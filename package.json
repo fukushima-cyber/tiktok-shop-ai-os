@@ -1,0 +1,11 @@
+{
+  "name": "tiktok-shop-ai-os",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TikTok Shop アフィリエイト AI運用OS（Muse / GrokBot対応・人間向けポータル＋AI直読llms.txt/Markdown）",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node build.mjs && python3 -m http.server 8790 --directory dist"
+  }
+}
