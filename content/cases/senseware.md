@@ -1,7 +1,7 @@
 # 案件パック（変数B）：センスウェア（SENSE WEAR）
 
 > 対象商材：男性向け練り香水「センスウェア ホワイトムスク」
-> 紐づくアカウント例：`./iinioisuki.md`（`@iinioisuki`）
+> アカウント設定：指定がなければ `00-os-principles.md` の標準プリセットを自動適用
 > 素材置き場：Google Drive「TTSオートフロー」配下（詳細は `./assets-index.md`）
 
 ---
