@@ -61,7 +61,8 @@ const DOCS = [
   { id: 'tpl-account', group: '任意上書きテンプレ', title: 'アカウント上書きテンプレ（任意）', path: 'templates/account-template.md', badge: '任意', raw: readContent('templates/account-template.md') },
   { id: 'tpl-product', group: '任意上書きテンプレ', title: '別商材用・案件ルールテンプレ', path: 'templates/product-template.md', badge: 'コピー用', raw: readContent('templates/product-template.md') },
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },
-  { id: 'script-ffmpeg', group: '編集スクリプト', title: 'edit_pipeline_ref.sh（HLG変換・1.2x・音量検査）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
+  { id: 'script-ffmpeg', group: '自動化スクリプト', title: 'edit_pipeline_ref.sh（Drive/RED収集・カット・編集・検査）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
+  { id: 'script-tracker', group: '自動化スクリプト', title: 'account_tracker_ref.py（自アカウント自動集計・48h PDCA）', path: 'scripts/account_tracker_ref.py', badge: 'Python', raw: '```python\n' + readContent('scripts/account_tracker_ref.py') + '\n```' },
 ];
 
 const patternsData = JSON.parse(readContent('data/patterns.json'));
@@ -304,7 +305,7 @@ const html = `<!doctype html>
       <div class="hero-card">
         <h1>どの商材でも、この1行をMuse / GrokBotに貼るだけで動き出します</h1>
         <p class="hero-lead">
-          サイト側での入力や設定は不要です。扱う商材は自由で、AIが <code>/llms.txt</code> を読んで <strong>公式・公開TikTokの自律リサーチ → 案件設計 → 企画発散 → 1.5秒ビートシート → 口語台本＆独立審査 → 編集</strong> まで一貫して進めます。
+          サイト側での入力や設定は不要です。扱う商材もアカウントも自由で、AIが <code>/llms.txt</code> を読んで <strong>自アカウント自動集計 → 商材・競合リサーチ → 企画発散 → 1.5秒ビートシート → 口語台本＆独立審査 → Drive/RED素材収集・カット編集 → 48h自動PDCA</strong> まで一貫して回します。
         </p>
 
         <div class="copy-box">
@@ -314,25 +315,26 @@ const html = `<!doctype html>
 
         <div class="quick-row">
           <span class="quick-label">すぐ使えるコピー：</span>
-          <button class="btn btn-sm" id="quickWithProduct">商材名を添えて開始する文</button>
+          <button class="btn btn-sm" id="quickWithProduct">商材・アカウント・Driveを添えて開始</button>
+          <button class="btn btn-sm" id="quickRoutine">毎日定時の自動集計・PDCAルーティン文</button>
           <button class="btn btn-sm" id="quickUrlOnly">URLだけコピー</button>
         </div>
 
         <div class="human-steps">
           <div class="h-step">
             <div class="h-step-num">STEP 1</div>
-            <div class="h-step-title">AIに1行貼って商材を渡す</div>
-            <p class="h-step-desc">上の文をMuse / GrokBotに送り、やりたい商品名や商品ページURLを伝えるだけ。どんな商材でもOKです。</p>
+            <div class="h-step-title">AIに1行貼って商材・アカウントを渡す</div>
+            <p class="h-step-desc">上の文をMuse / GrokBotに送り、商品名（またはURL）・自分の <code>@handle</code>・素材Drive URLを伝えるだけ。</p>
           </div>
           <div class="h-step">
             <div class="h-step-num">STEP 2</div>
-            <div class="h-step-title">AIが自律リサーチ＆設計</div>
-            <p class="h-step-desc">AIが公式情報と競合TikTokを自力で調べ、案件ルール作成・企画5〜8案発散・口語台本・独立レッドチーム審査まで自動で回します。</p>
+            <div class="h-step-title">AIが調査・制作・編集・集計を自律実行</div>
+            <p class="h-step-desc">過去投稿集計、競合リサーチ、企画5〜8案発散、口語台本＆独立審査、Drive/RED素材からのカット編集・48h集計までAIが自動で回します。</p>
           </div>
           <div class="h-step">
             <div class="h-step-num">STEP 3</div>
-            <div class="h-step-title">人間は「選ぶ・OK」だけ</div>
-            <p class="h-step-desc">ゲートA（企画選択）・ゲートB（台本OK）・ゲートC（動画確認）の3回だけ返事をすれば完了です。</p>
+            <div class="h-step-title">人間は「選ぶ・OK・注文数共有」だけ</div>
+            <p class="h-step-desc">ゲートA（企画）・B（台本）・C（動画）の確認と、非公開の注文数だけ必要に応じて伝えればPDCAが回り続けます。</p>
           </div>
         </div>
       </div>
@@ -538,7 +540,8 @@ const html = `<!doctype html>
     document.getElementById('openLlmsLink').href = RUNTIME_BASE + '/llms.txt';
     document.getElementById('mainCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
     document.getElementById('topCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
-    document.getElementById('quickWithProduct').onclick = () => copyText(llmsPublicUrl + ' を読んで、「【商品名やURL】」のリサーチから企画・台本まで進めてください。', '商材名つき開始文をコピーしました');
+    document.getElementById('quickWithProduct').onclick = () => copyText(llmsPublicUrl + ' を読んで進めてください。商材：【商品名やURL】／アカウント：【@handle】／素材Drive：【URLまたはなし】', '商材・アカウントつき開始文をコピーしました');
+    document.getElementById('quickRoutine').onclick = () => copyText(llmsPublicUrl + ' を読み、Skill 07に従って私のアカウント（@handle）を自動集計してください。48時間経過した新規動画があれば3段階PDCA判定と次回企画ブリーフを作成して報告してください。投稿や広告操作はせず報告のみにしてください。', '定期PDCAルーティン文をコピーしました');
     document.getElementById('quickUrlOnly').onclick = () => copyText(llmsPublicUrl, 'llms.txt のURLをコピーしました');
 
     // View switching
@@ -555,8 +558,8 @@ const html = `<!doctype html>
       { id: 'skill-03', num: '03', name: '1.5秒ビートシート', tag: '' },
       { id: 'skill-04', num: '04', name: '口語台本・TTS', tag: '' },
       { id: 'skill-05', num: '05', name: '独立レッドチーム審査', tag: 'ゲートB' },
-      { id: 'skill-06', num: '06', name: '自動編集・機械検査', tag: 'ゲートC' },
-      { id: 'skill-07', num: '07', name: '投稿・48h PDCA', tag: '' },
+      { id: 'skill-06', num: '06', name: '素材収集・カット編集', tag: 'ゲートC' },
+      { id: 'skill-07', num: '07', name: '自動集計・48h PDCA', tag: '' },
     ];
     const flowEl = document.getElementById('flowStrip');
     flowSteps.forEach(s => {

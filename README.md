@@ -22,4 +22,5 @@ npm run serve
 - `content/patterns/S01〜S20.md` : 個別台本型の詳細
 - `content/cases/` : 実例リファレンス（練り香水・美容液のリサーチ/お手本台本/素材管理の見本）
 - `content/templates/` : 別商材・上書き設定用の任意テンプレート
-- `content/scripts/edit_pipeline_ref.sh` : ffmpeg編集・HLG変換・音量測定・コンタクトシート生成コマンド集
+- `content/scripts/edit_pipeline_ref.sh` : Google Drive/RED素材収集・自動検品・カット・寄せ・テロップ・1.2x・音量検査コマンド集
+- `content/scripts/account_tracker_ref.py` : 自アカウントの公開投稿自動集計・24h/48hスナップ・3段階PDCA台帳スクリプト
