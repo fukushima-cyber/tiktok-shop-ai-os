@@ -48,7 +48,8 @@ fs.writeFileSync(path.join(DIST_DIR, 'llms.txt'), expandedLlms, 'utf8');
 const DOCS = [
   { id: 'llms', group: 'AI入口', title: 'llms.txt（自律起動プロトコル）', path: 'llms.txt', badge: 'AI入口', raw: expandedLlms },
   { id: 'muse-skill', group: 'AI入口', title: 'muse/SKILL.md（Muse.ai 永続インストール用）', path: 'muse/SKILL.md', badge: 'Muse用', raw: readContent('muse/SKILL.md') },
-  { id: 'core-00', group: '定数OS', title: '00 定数OS・伸びる原理8つ・標準プリセット', path: 'core/00-os-principles.md', badge: '必読', raw: readContent('core/00-os-principles.md') },
+  { id: 'core-00', group: '定数OS・共有素材', title: '00 定数OS・伸びる原理8つ・標準プリセット', path: 'core/00-os-principles.md', badge: '必読', raw: readContent('core/00-os-principles.md') },
+  { id: 'case-assets', group: '定数OS・共有素材', title: '標準の共有素材置き場（Google Drive：TTSオートフロー）', path: 'cases/assets-index.md', badge: 'Drive', raw: readContent('cases/assets-index.md') },
   { id: 'skill-01', group: '7つのSkill', title: 'Skill 01：案件オンボーディング & 競合リサーチ', path: 'skills/01-onboarding.md', badge: '導入', raw: readContent('skills/01-onboarding.md') },
   { id: 'skill-02', group: '7つのSkill', title: 'Skill 02：企画・インサイト発散 & 選別', path: 'skills/02-planning.md', badge: 'ゲートA', raw: readContent('skills/02-planning.md') },
   { id: 'skill-03', group: '7つのSkill', title: 'Skill 03：1.5秒ビートシート設計', path: 'skills/03-beat-sheet.md', badge: '構成', raw: readContent('skills/03-beat-sheet.md') },
@@ -58,7 +59,6 @@ const DOCS = [
   { id: 'skill-07', group: '7つのSkill', title: 'Skill 07：投稿パッケージ & 48h PDCA', path: 'skills/07-post-pdca.md', badge: '運用', raw: readContent('skills/07-post-pdca.md') },
   { id: 'case-senseware', group: '実例リファレンス（見本）', title: '実例1：センスウェア（お手本台本・素材管理）', path: 'cases/senseware.md', badge: '見本', raw: readContent('cases/senseware.md') },
   { id: 'case-calm7', group: '実例リファレンス（見本）', title: '実例2：カームセブン（266本リサーチ・主語一致）', path: 'cases/calm7.md', badge: '見本', raw: readContent('cases/calm7.md') },
-  { id: 'case-assets', group: '実例リファレンス（見本）', title: '実例3：Google Drive素材一覧の構成見本', path: 'cases/assets-index.md', badge: '見本', raw: readContent('cases/assets-index.md') },
   { id: 'tpl-account', group: '任意上書きテンプレ', title: 'アカウント上書きテンプレ（任意）', path: 'templates/account-template.md', badge: '任意', raw: readContent('templates/account-template.md') },
   { id: 'tpl-product', group: '任意上書きテンプレ', title: '別商材用・案件ルールテンプレ', path: 'templates/product-template.md', badge: 'コピー用', raw: readContent('templates/product-template.md') },
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },

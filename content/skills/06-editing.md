@@ -13,9 +13,9 @@
 
 `./scripts/edit_pipeline_ref.sh` の関数を使って素材を手元に集め、編集前に必ず全ファイルの中身を検査します。
 
-### 1. Google Drive からの収集（2段構え）
-- **Muse.ai 優先ルート**：Museの **Google Drive Connector** が接続済みなら、コネクタ経由でフォルダ名・ファイル名から直接取得する（大容量動画でも安定し、書き出した完成mp4もDriveへ戻して共有できる）。
-- **共有URLルート（Connector未接続時）**：単体ファイルIDなら `download_gdrive_file`、共有フォルダURLなら `gdown --folder`（`download_gdrive_folder`）。ログイン必須で開けない場合は推測せず止まって共有設定の変更を依頼する。
+### 1. Google Drive からの収集（標準共有Drive → 各自Driveの2段構え）
+- **標準の共有素材置き場（最初に確認）**：まず共有Google Drive「TTSオートフロー」の `素材一覧_全商品.md`（`https://drive.google.com/uc?export=download&id=1ypjOJlJQbRdsYdpx1JzLuTinDahbXFbI`）を確認し、該当商材のフォルダと `動画素材共通` からファイルID直DL（`download_gdrive_file`）で取得する。
+- **ユーザー自身のDriveを使う場合**：Museの **Google Drive Connector** が接続済みなら、コネクタ経由でフォルダ名・ファイル名から直接取得・完成mp4書き戻しを行う。未接続なら共有フォルダURLを `gdown --folder`（`download_gdrive_folder`）で取得する。ログイン必須で開けない場合は推測せず止まって共有設定の変更を依頼する。
 
 ### 2. RED（小紅書）・フリー素材からの収集（ブロック時フォールバック付き）
 - 商品アップは必ず自社素材を使う。生活・物語パートの絵が足りないときだけ RED の公開投稿ページから動画のみを取得する（`yt-dlp` / `download_public_video`）。

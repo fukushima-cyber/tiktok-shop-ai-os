@@ -23,8 +23,9 @@ metadata:
 2. **環境チェック & 自動修復（`preflight_muse.sh`）**：
    - `ffmpeg` / `ffprobe` / `python3` / 日本語ゴシックフォント（`Noto Sans CJK` 等） / `edge-tts` / `yt-dlp` / `gdown` の有無を確認し、不足ツールを導入する。
    - **重要**：日本語フォントがないまま `ffmpeg` でテロップを焼くと文字化け（豆腐文字）になるため、必ず有効な日本語フォントパスを `config.json` に記録する。
-3. **Google Drive & 効果音キャッシュの準備**：
-   - Museの **Google Drive Connector** が接続済みか確認する（大容量動画はチャット添付より Google Drive Connector 経由の読み書きが安定）。未接続なら「共有リンク（`gdown` / `uc?export=download`）」で代替する。
+3. **標準の共有Google Drive & 効果音キャッシュの準備**：
+   - まず標準の共有素材置き場（Google Drive「TTSオートフロー」`https://drive.google.com/drive/folders/1OPd1eGR5EpWh3-QVqDrG1W86MjlGoMuW`、全商品一覧直DL：`https://drive.google.com/uc?export=download&id=1ypjOJlJQbRdsYdpx1JzLuTinDahbXFbI`）をデフォルト参照先として `config.json` に記録する。
+   - さらに Museの **Google Drive Connector** が接続済みか確認する（大容量動画やユーザー自身の素材・完成mp4の書き戻しは Connector 経由が最も安定）。未接続なら共有URL（`uc?export=download` / `gdown`）を使う。
    - 効果音ラボの標準7種は、毎回DLし直さず初回に `~/workspace/tiktok-shop-ops/sfx/` へキャッシュする（再配布禁止・自分のVM内利用のみ）。もしSentinelプロキシ等で取得できない場合は、依頼者に効果音ラボの7曲URLを提示してGoogle Driveの `sfx` フォルダへ置いてもらう。
 4. **ユーザー設定の永続化（`~/workspace/tiktok-shop-ops/config.json`）**：
    - ユーザーに聞くのは最小限（未指定ならスキップ可）：
