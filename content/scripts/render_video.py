@@ -284,19 +284,55 @@ def render(plan: dict, out_dir: str) -> dict:
                     else ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
                 )
 
-                if telop_text and use_pil_overlay:
-                    png_path = os.path.join(work, f"telop_{cid:02d}.png")
-                    t_info = render_telop_png(telop_text, font_path, png_path, pos_y=pos_y, fill_rgb=fill_rgb)
-                    telop_checks.append({"cut": cid, **t_info})
-                    if not t_info["above_y1500"]:
-                        warnings.append(f"Cut {cid}: テロップ下端 y={t_info['y_end']} が y1500 を超えています")
-                    fc = f"[0:v]{','.join(base_vf)}[bg];[bg][1:v]overlay=0:0:shortest=1[v]"
+                overlay_path = (c.get("overlay_path") or "").strip()
+                has_overlay = bool(overlay_path and os.path.isfile(overlay_path))
+                ov_x = int(c.get("overlay_x", 0))
+                ov_y = int(c.get("overlay_y", 0))
+
+                if (telop_text and use_pil_overlay) or has_overlay:
                     cmd = [
                         "ffmpeg", "-y", "-v", "error",
                         "-ss", str(c.get("start_sec", 0.0)), "-t", f"{dur:.4f}", "-i", c["source"],
-                        "-loop", "1", "-t", f"{dur:.4f}", "-i", png_path,
-                        "-filter_complex", fc, "-map", "[v]", "-t", f"{dur:.4f}", "-an", *v_enc, clip_out,
                     ]
+                    fc_parts = [f"[0:v]{','.join(base_vf)}[bg]"]
+                    cur_label = "[bg]"
+                    next_idx = 1
+
+                    # 編集用エフェクト・透過GIF/PNGオーバーレイ（実写ベース映像の上に乗せる用途のみ許可）
+                    if has_overlay:
+                        ov_ext = os.path.splitext(overlay_path)[1].lower()
+                        if ov_ext == ".gif":
+                            cmd += ["-ignore_loop", "0", "-t", f"{dur:.4f}", "-i", overlay_path]
+                        elif ov_ext in {".png", ".webp"}:
+                            cmd += ["-loop", "1", "-t", f"{dur:.4f}", "-i", overlay_path]
+                        else:
+                            cmd += ["-stream_loop", "-1", "-t", f"{dur:.4f}", "-i", overlay_path]
+                        fc_parts.append(f"{cur_label}[{next_idx}:v]overlay={ov_x}:{ov_y}:shortest=1[ov{next_idx}]")
+                        cur_label = f"[ov{next_idx}]"
+                        next_idx += 1
+
+                    if telop_text and use_pil_overlay:
+                        png_path = os.path.join(work, f"telop_{cid:02d}.png")
+                        t_info = render_telop_png(telop_text, font_path, png_path, pos_y=pos_y, fill_rgb=fill_rgb)
+                        telop_checks.append({"cut": cid, **t_info})
+                        if not t_info["above_y1500"]:
+                            warnings.append(f"Cut {cid}: テロップ下端 y={t_info['y_end']} が y1500 を超えています")
+                        cmd += ["-loop", "1", "-t", f"{dur:.4f}", "-i", png_path]
+                        fc_parts.append(f"{cur_label}[{next_idx}:v]overlay=0:0:shortest=1[vout]")
+                        cur_label = "[vout]"
+                    elif telop_text and has_drawtext:
+                        txt_file = os.path.join(work, f"telop_{cid:02d}.txt")
+                        with open(txt_file, "w", encoding="utf-8") as tf:
+                            tf.write(telop_text)
+                        fc_parts.append(
+                            f"{cur_label}drawtext=fontfile='{escape_drawtext_path(font_path)}':"
+                            f"textfile='{escape_drawtext_path(txt_file)}':"
+                            f"fontsize=68:fontcolor={text_color_hex}:borderw=8:bordercolor=black:"
+                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={pos_y}[vout]"
+                        )
+                        cur_label = "[vout]"
+
+                    cmd += ["-filter_complex", ";".join(fc_parts), "-map", cur_label, "-t", f"{dur:.4f}", "-an", *v_enc, clip_out]
                 else:
                     if telop_text and has_drawtext:
                         txt_file = os.path.join(work, f"telop_{cid:02d}.txt")
