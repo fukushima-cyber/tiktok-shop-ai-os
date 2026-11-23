@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TikTok Shop AI運用OS：素材収集・カット・編集・音声ミックス・検査 フルリファレンス（Skill 06 準拠）
-# すべてのコマンドはローカル/仮想環境（GrokBot等）でそのまま実行・応用できる標準形です。
-# ※他人の認証情報・Cookieによるbot/WAF回避は禁止。公開URLのみ対象とします。
+# すべてのコマンドはローカル/仮想環境でそのまま参照・応用できる標準形です。
+# ※ログイン不要の公開URL・自身のGoogle Drive素材のみを対象とします。
 set -euo pipefail
 
 # ==============================================================================
@@ -15,7 +15,7 @@ download_gdrive_file() {
   curl -fsSL "https://drive.google.com/uc?export=download&id=${file_id}" -o "$out_path"
 }
 
-# 0-b. Google Drive 共有フォルダ丸ごとDL（gdown利用。未導入なら pip install gdown）
+# 0-b. Google Drive 共有フォルダ丸ごとDL（gdown利用）
 download_gdrive_folder() {
   local folder_url="$1"
   local out_dir="$2"
@@ -23,7 +23,7 @@ download_gdrive_folder() {
   gdown --folder "$folder_url" -O "$out_dir" --remaining-ok
 }
 
-# 0-c. RED（小紅書）等の公開投稿ページから動画のみ取得（認証・Cookie回避なし）
+# 0-c. 公開動画ページから動画のみ取得（認証不要の公開ページのみ）
 download_public_video() {
   local public_url="$1"
   local out_template="$2" # 例: ./raw_red/%(id)s.%(ext)s

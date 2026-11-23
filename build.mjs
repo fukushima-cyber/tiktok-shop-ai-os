@@ -46,8 +46,8 @@ fs.writeFileSync(path.join(DIST_DIR, 'llms.txt'), expandedLlms, 'utf8');
 
 // Collect all docs for embedding into the zero-dependency SPA portal
 const DOCS = [
-  { id: 'llms', group: 'AI入口', title: 'llms.txt（自律起動プロトコル）', path: 'llms.txt', badge: 'AI入口', raw: expandedLlms },
-  { id: 'muse-skill', group: 'AI入口', title: 'muse/SKILL.md（Muse.ai 永続インストール用）', path: 'muse/SKILL.md', badge: 'Muse用', raw: readContent('muse/SKILL.md') },
+  { id: 'llms', group: 'AI入口', title: 'llms.txt（ドキュメント目次・制作ガイド）', path: 'llms.txt', badge: 'AI入口', raw: expandedLlms },
+  { id: 'muse-skill', group: 'AI入口', title: 'muse/SKILL.md（エージェント運用設定ガイド）', path: 'muse/SKILL.md', badge: 'Muse用', raw: readContent('muse/SKILL.md') },
   { id: 'core-00', group: '定数OS・共有素材', title: '00 定数OS・伸びる原理8つ・標準プリセット', path: 'core/00-os-principles.md', badge: '必読', raw: readContent('core/00-os-principles.md') },
   { id: 'case-assets', group: '定数OS・共有素材', title: '標準の共有素材置き場（Google Drive：TTSオートフロー）', path: 'cases/assets-index.md', badge: 'Drive', raw: readContent('cases/assets-index.md') },
   { id: 'skill-01', group: '7つのSkill', title: 'Skill 01：案件オンボーディング & 競合リサーチ', path: 'skills/01-onboarding.md', badge: '導入', raw: readContent('skills/01-onboarding.md') },
@@ -544,7 +544,7 @@ const html = `<!doctype html>
 
     // 1-line AI commands
     const llmsPublicUrl = PUBLIC_BASE + '/llms.txt';
-    const defaultCmd = llmsPublicUrl + ' を読んで、このOSを私のMuse環境に永続セットアップしてから進めてください。';
+    const defaultCmd = llmsPublicUrl + ' を制作ガイドとして参照し、この手順に沿ってTikTok Shop動画の制作を進めてください。';
     document.getElementById('oneLineCommand').textContent = defaultCmd;
     document.getElementById('openLlmsLink').href = RUNTIME_BASE + '/llms.txt';
     document.getElementById('mainCopyBtn').onclick = () => copyText(defaultCmd, 'AIに渡す1文をコピーしました');
