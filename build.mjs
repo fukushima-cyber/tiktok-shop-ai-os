@@ -65,6 +65,7 @@ const DOCS = [
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },
   { id: 'script-preflight', group: '自動化スクリプト', title: 'preflight_muse.sh（環境診断・日本語フォント確認）', path: 'scripts/preflight_muse.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/preflight_muse.sh') + '\n```' },
   { id: 'script-frame-sheet', group: '自動化スクリプト', title: 'frame_sheet.py（0.5秒精密フレームシート & 参考動画構造抽出）', path: 'scripts/frame_sheet.py', badge: 'Python', raw: '```python\n' + readContent('scripts/frame_sheet.py') + '\n```' },
+  { id: 'script-broll', group: '自動化スクリプト', title: 'broll_hunter.py（Mixkit/Pexels/RED実写B-roll収集・検品・吹き出し生成）', path: 'scripts/broll_hunter.py', badge: 'Python', raw: '```python\n' + readContent('scripts/broll_hunter.py') + '\n```' },
   { id: 'script-render', group: '自動化スクリプト', title: 'render_video.py（本番レンダリング・Whisper照合・フック3案一括）', path: 'scripts/render_video.py', badge: 'Python', raw: '```python\n' + readContent('scripts/render_video.py') + '\n```' },
   { id: 'script-ffmpeg', group: '自動化スクリプト', title: 'edit_pipeline_ref.sh（Drive/RED収集・自動検品・カット）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
   { id: 'script-tracker', group: '自動化スクリプト', title: 'account_tracker_ref.py（自アカウント自動集計・48h PDCA）', path: 'scripts/account_tracker_ref.py', badge: 'Python', raw: '```python\n' + readContent('scripts/account_tracker_ref.py') + '\n```' },

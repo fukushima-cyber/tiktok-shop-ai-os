@@ -54,6 +54,7 @@
 - エージェント向け運用ガイド（Muse等の設定例）: `./muse/SKILL.md`
 - 環境確認スクリプト（ffmpeg・日本語フォント等のチェック）: `./scripts/preflight_muse.sh`
 - 0.5秒精密フレームシート生成 & 参考動画構造抽出スクリプト: `./scripts/frame_sheet.py`
+- 外部実写B-roll収集・9:16検品 & 編集オーバーレイ生成スクリプト（Mixkit / Pexels / RED対応）: `./scripts/broll_hunter.py`
 - JSON入力の動画レンダリングスクリプト（Pillow透過PNG・GIFオーバーレイ・Whisper音声照合・フック3案一括対応）: `./scripts/render_video.py`
 - 素材検品・編集リファレンスコマンド集: `./scripts/edit_pipeline_ref.sh`
 - アカウント集計・48h PDCA記録スクリプト: `./scripts/account_tracker_ref.py`

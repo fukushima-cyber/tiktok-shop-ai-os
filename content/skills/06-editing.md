@@ -17,10 +17,13 @@
 - **標準の共有素材置き場（最初に確認）**：まず共有Google Drive「TTSオートフロー」の `素材一覧_全商品.md`（`https://drive.google.com/uc?export=download&id=1ypjOJlJQbRdsYdpx1JzLuTinDahbXFbI`）を確認し、該当商材のフォルダと `動画素材共通` からファイルID直DL（`download_gdrive_file`）で取得する。
 - **ユーザー自身のDriveを使う場合**：Museの **Google Drive Connector** が接続済みなら、コネクタ経由でフォルダ名・ファイル名から直接取得・完成mp4書き戻しを行う。未接続なら共有フォルダURLを `gdown --folder`（`download_gdrive_folder`）で取得する。ログイン必須で開けない場合は推測せず止まって共有設定の変更を依頼する。
 
-### 2. RED（小紅書）・フリー素材からの収集（ブロック時フォールバック付き）
-- 商品アップは必ず自社素材を使う。生活・物語パートの絵が足りないときだけ RED の公開投稿ページから動画のみを取得する（`yt-dlp` / `download_public_video`）。
-- **外部サイトでアクセス制限が出た場合の対応**：公開ページが開けない、または取得制限が出た場合は無理にアクセスを続けず、即座に ①Google Drive内素材 → ②公開実写フリー素材（Pexels / Mixkit）→ ③依頼者へ「不足している生活カットだけDriveに追加してほしい」と相談、へ切り替える。
-- なるべく1人の投稿者で揃え、手元や部屋が別人にみえないようにする。
+### 2. 外部実写 B-roll（RED・Mixkit・Pexels）の自動収集＆9:16クロップ検品
+- 商品アップ・塗布・ラベルは必ず自社素材を使う。一方で、**前半の悩み・日常・生活場面（洗面台・コスメの山・朝支度・夜スマホ・旅行準備など）は、自社素材だけで単調にせず `./scripts/broll_hunter.py` で外部実写 B-roll を積極的に集めて組み合わせる**。
+  - **Mixkit（キー不要・商用無料・透かしゼロ）**：`python3 broll_hunter.py search-mixkit --query "cosmetics"` で検索 → `download --sheet` で9:16切り出し後の検品シートを生成し、顔なし・違和感なし（手元・物・空間カット優先）を目視選定する。
+  - **Pexels（無料APIキー設定時）**：`python3 broll_hunter.py search-pexels --query "skincare hand" --orientation portrait` で縦9:16実写を直接検索する。
+  - **RED（小紅書）公開投稿**：公開URLがある場合、`python3 broll_hunter.py fetch-red --url "<URL>" --out-dir ./assets/red --sheet-dir ./work` で取得し、9:16検品シートで **2.0倍以内の寄せで透かし・中国語・顔を完全に画面外へ出せるカットのみ** 採用する（アクセス制限・ログイン壁が出た場合は無理にアクセスせず、Drive既存RED素材または Mixkit / Pexels へ切り替える）。
+  - **編集オーバーレイ生成**：コメント返信型や要点強調には `python3 broll_hunter.py make-overlay --kind comment --text "..."` で吹き出しPNGを生成し、`render_video.py` の `overlay_path` で合成できる。
+- ※横16:9の B-roll を縦9:16へ切り出す時点で約 `1.78倍` の寄せになるため、`plan.json` の `zoom` は `1.0〜1.1`（合算2.0倍以内）に収める。なるべく世界観（明るさ・生活感）が浮かないカットを選ぶ。
 
 ### 2.5. 動画レンダリング・精密フレーム選定・音声照合の実行方式
 - **0.5秒精密フレーム選定**：主力素材（塗布・質感・ラベル寄り等）は `./scripts/frame_sheet.py --step 0.5` でタイムスタンプ付きグリッド画像を出し、一番画が強い `start_sec` を目視で決めて `plan.json` へ入れる。
