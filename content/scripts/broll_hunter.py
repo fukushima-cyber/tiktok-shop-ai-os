@@ -73,7 +73,8 @@ def ffprobe_info(path: str) -> dict:
     h = int(st.get("height") or 0)
     dur = float(fmt.get("duration") or 0.0)
     orient = "portrait" if h >= w else "landscape"
-    crop_factor_for_9_16 = 1.0 if orient == "portrait" else round((w / max(1, h)) / (9 / 16), 2)
+    # 1080x1920へフィットさせる線形拡大倍率（1920x1080横→縦切り出しは約1.78倍）
+    crop_factor_for_9_16 = 1.0 if orient == "portrait" else round(1920.0 / max(1, h), 2)
     return {
         "width": w,
         "height": h,
