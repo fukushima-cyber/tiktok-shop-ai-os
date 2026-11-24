@@ -19,7 +19,7 @@ for pkg in edge-tts yt-dlp gdown; do
   if command -v "$pkg" >/dev/null 2>&1; then
     echo "[OK] $pkg"
   else
-    echo "[MISSING] $pkg（必要な工程でのみ使用）"
+    echo "[MISSING] ${pkg}（必要な工程でのみ使用）"
   fi
 done
 
