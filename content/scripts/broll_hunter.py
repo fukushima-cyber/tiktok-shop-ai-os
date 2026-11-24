@@ -37,14 +37,26 @@ import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 
 
-def load_jp_font(size: int = 34):
-    candidates = [
-        "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
-        "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-    ]
+def load_jp_font(size: int = 34, heavy: bool = False):
+    if heavy:
+        candidates = [
+            "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W9.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        ]
+    else:
+        candidates = [
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        ]
     for p in candidates:
         if os.path.isfile(p):
             try:
@@ -262,14 +274,113 @@ def make_overlay(kind: str, text: str, out_png: str, subtext: str = "") -> dict:
             y += 48
         im.save(out_png)
     elif kind == "badge":
-        W, H = 560, 110
+        from PIL import ImageFilter
+        # 2x supersampled high-craft TikTok Shop sale badge (crisp anti-aliasing, gradient, drop shadow, two-tone typography)
+        S = 2
+        W, H = 680 * S, 160 * S
         im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+        style = (subtext or "sale").strip().lower()
+        is_bf = style in ("bf", "blackfriday", "black_friday")
+
+        # Measure segments for clean visual hierarchy (highlight "SALE" in warm gold)
+        f_main = load_jp_font(42 * S, heavy=True)
+        f_tag = load_jp_font(24 * S, heavy=True)
+        tag_label = "BLACK FRIDAY" if is_bf else "TikTok Shop"
+
+        # Split text around "SALE" if present so SALE gets accent color + clean optical kerning
+        parts = re.split(r"(SALE)", text)
+        parts = [p for p in parts if p]
+
+        tmp_d = ImageDraw.Draw(im)
+        seg_metrics = []
+        total_tw = 0
+        max_th = 0
+        seg_gap = 6 * S
+        for idx_p, p in enumerate(parts):
+            bb = tmp_d.textbbox((0, 0), p, font=f_main)
+            pw, ph = bb[2] - bb[0], bb[3] - bb[1]
+            seg_metrics.append((p, pw, ph, bb[0], bb[1]))
+            total_tw += pw + (seg_gap if idx_p > 0 else 0)
+            max_th = max(max_th, ph)
+
+        # Pill geometry tightly fitted around text with generous breathing room
+        pad_x = 58 * S
+        pill_w = min(W - 40 * S, max(460 * S, total_tw + pad_x * 2))
+        pill_h = 84 * S
+        px0 = (W - pill_w) // 2
+        py0 = 52 * S
+        px1 = px0 + pill_w
+        py1 = py0 + pill_h
+        radius = pill_h // 2
+
+        # Soft drop shadow
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(sh)
+        sd.rounded_rectangle([px0, py0 + 10 * S, px1, py1 + 10 * S], radius=radius, fill=(0, 0, 0, 135))
+        sh = sh.filter(ImageFilter.GaussianBlur(radius=14 * S))
+        im.alpha_composite(sh)
+
+        # Gradient fill inside rounded pill mask
+        grad = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(grad)
+        c_left = (18, 20, 26) if is_bf else (255, 31, 90)
+        c_right = (44, 46, 56) if is_bf else (255, 98, 42)
+        for x in range(px0, px1 + 1):
+            t = (x - px0) / max(1, (px1 - px0))
+            r = int(c_left[0] + (c_right[0] - c_left[0]) * t)
+            g = int(c_left[1] + (c_right[1] - c_left[1]) * t)
+            b = int(c_left[2] + (c_right[2] - c_left[2]) * t)
+            gd.line([(x, py0), (x, py1)], fill=(r, g, b, 248))
+
+        # Subtle glossy top highlight inside pill
+        hl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        hd = ImageDraw.Draw(hl)
+        hd.rounded_rectangle([px0 + 6 * S, py0 + 4 * S, px1 - 6 * S, py0 + pill_h // 2], radius=radius // 2, fill=(255, 255, 255, 42))
+        grad.alpha_composite(hl)
+
+        mask = Image.new("L", (W, H), 0)
+        md = ImageDraw.Draw(mask)
+        md.rounded_rectangle([px0, py0, px1, py1], radius=radius, fill=255)
+        pill_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        pill_layer.paste(grad, (0, 0), mask)
+        im.alpha_composite(pill_layer)
+
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle([8, 8, W - 8, H - 8], radius=22, fill=(20, 20, 24, 210), outline=(255, 255, 255, 220), width=4)
-        f_main = load_jp_font(38)
-        bbox = d.textbbox((0, 0), text, font=f_main)
-        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        d.text(((W - tw) // 2, (H - th) // 2 - 4), text, font=f_main, fill=(255, 255, 255, 255))
+        rim_col = (246, 200, 95, 255) if is_bf else (255, 255, 255, 240)
+        d.rounded_rectangle([px0, py0, px1, py1], radius=radius, outline=rim_col, width=4 * S)
+
+        # Floating mini eyebrow chip centered on top edge ("TikTok Shop" or "BLACK FRIDAY")
+        tbb = d.textbbox((0, 0), tag_label, font=f_tag)
+        ttw, tth = tbb[2] - tbb[0], tbb[3] - tbb[1]
+        chip_w = ttw + 36 * S
+        chip_h = 36 * S
+        cx0 = (W - chip_w) // 2
+        cy0 = py0 - 26 * S
+        chip_fill = (246, 200, 95, 255) if is_bf else (20, 22, 28, 248)
+        chip_txt = (18, 20, 26, 255) if is_bf else (255, 255, 255, 255)
+        d.rounded_rectangle([cx0, cy0, cx0 + chip_w, cy0 + chip_h], radius=chip_h // 2, fill=chip_fill, outline=(255, 255, 255, 230), width=2 * S)
+        d.text(
+            (cx0 + (chip_w - ttw) // 2 - tbb[0], cy0 + (chip_h - tth) // 2 - tbb[1] - 1 * S),
+            tag_label,
+            font=f_tag,
+            fill=chip_txt,
+        )
+
+        # Draw main bold text with crisp subtle drop shadow + warm gold accent on "SALE"
+        cur_x = (W - total_tw) // 2
+        base_y = py0 + (pill_h - max_th) // 2 + 6 * S
+        for idx_p, (p, pw, ph, bx0, by0) in enumerate(seg_metrics):
+            if idx_p > 0:
+                cur_x += seg_gap
+            fill_col = (255, 232, 92, 255) if p == "SALE" else (255, 255, 255, 255)
+            ty = base_y - by0
+            tx = cur_x - bx0
+            d.text((tx + 2 * S, ty + 3 * S), p, font=f_main, fill=(0, 0, 0, 120))
+            d.text((tx, ty), p, font=f_main, fill=fill_col)
+            cur_x += pw
+
+        im = im.resize((W // S, H // S), Image.Resampling.LANCZOS)
         im.save(out_png)
     else:
         raise ValueError(f"Unsupported overlay kind: {kind}")

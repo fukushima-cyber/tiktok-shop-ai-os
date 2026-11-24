@@ -92,7 +92,9 @@ def ensure_cut_audio(cut: dict, voice: str, work_dir: str) -> str:
         )
         return out_wav
 
-    reading = (cut.get("reading") or cut.get("telop") or "").replace("。", "、").replace("\n", "、").strip()
+    raw_reading = (cut.get("reading") or cut.get("telop") or "").replace("。", "、").replace("\n", "、").strip()
+    # Neural日本語TTSは単語間スペースがあると区切りがブツ切り・カタコト化するため除去する
+    reading = re.sub(r"[ 　]+", "", raw_reading)
     if not reading:
         raise ValueError(f"Cut {cid}: reading または audio_wav が必要です。")
     if not shutil.which("edge-tts"):
