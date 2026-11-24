@@ -3,7 +3,7 @@ name: tiktok-shop-os
 description: TikTok Shop向けショート動画の商材リサーチ、企画発散、1.5秒ビートシート、口語台本、品質レビュー、動画編集、投稿後の48h振り返りを一貫して進めるための運用ガイド。
 compatibility: Meta Muse / GrokBot / Claude / Codex. Python 3.10+, ffmpeg recommended.
 metadata:
-  version: "2.2"
+  version: "2.3"
   guide_url: "https://fukushima-cyber.github.io/tiktok-shop-ai-os/llms.txt"
 ---
 
@@ -16,7 +16,7 @@ metadata:
 ## 1. 推奨する初期設定（ユーザーの依頼に応じて構成）
 
 1. **作業フォルダ構成（任意の作業ディレクトリ配下）**：
-   - `assets/`（素材一時保存）、`sfx/`（効果音）、`work/`（中間ファイル）、`output/`（完成mp4・コンタクトシート）、`ledger/`（アカウント実績・ローカル型記録）
+   - `brief/`（`research_brief.md`・`asset_inventory.md`）、`assets/`（素材一時保存）、`sfx/`（効果音）、`work/`（中間ファイル）、`output/`（完成mp4・コンタクトシート）、`ledger/`（アカウント実績・ローカル型記録）
 2. **環境確認（`scripts/preflight_muse.sh`）**：
    - `ffmpeg` / `ffprobe` / `python3` / `pillow` / `edge-tts` / 日本語ゴシックフォントの有無を事前に確認します。
    - 日本語フォントが未導入の環境ではテロップが文字化けするため、利用可能な日本語ゴシックフォントのパスを控えておきます。

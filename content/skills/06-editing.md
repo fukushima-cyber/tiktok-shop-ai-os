@@ -1,7 +1,7 @@
 # Skill 06：素材収集・自動カット編集 & 機械検査（ゲートC）
 
 > **使うタイミング**：ゲートBで台本・ビートシートが承認された直後（または素材収集から任されたとき）。
-> **読むファイル**：`./core/00-os-principles.md`（標準プリセット）＋ 案件ルール（変数B）＋ `./scripts/edit_pipeline_ref.sh`。
+> **読むファイル**：`./core/00-os-principles.md`（標準プリセット）＋ `brief/research_brief.md` ＋ `brief/asset_inventory.md` ＋ `./scripts/edit_pipeline_ref.sh`。
 > **ゴール**：Google Driveや公開REDから素材を集めて自動検品し、カット・寄せ・テロップ・音声・効果音ミックス・2本書き出し・機械検査まで一気通貫で仕上げてゲートCへ渡す。
 
 ---
