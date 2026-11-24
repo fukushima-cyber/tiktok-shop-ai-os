@@ -217,7 +217,7 @@ def render_telop_png(
     text: str,
     font_path: str,
     out_png: str,
-    pos_y: int = 1240,
+    pos_y: int | str | None = "center",
     font_size: int = 64,
     fill_rgb: tuple[int, int, int] = (255, 255, 255),
     max_width: int = 720,
@@ -231,37 +231,51 @@ def render_telop_png(
 
     wrapped = wrap_japanese_telop(text, draw, font, stroke_w, max_width)
 
-    y = pos_y
+    line_metrics = []
     max_measured_w = 0
-    for ln in wrapped:
+    total_h = 0
+    for idx_l, ln in enumerate(wrapped):
         bbox = draw.textbbox((0, 0), ln, font=font, stroke_width=stroke_w)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
         max_measured_w = max(max_measured_w, tw)
+        line_metrics.append((ln, tw, th))
+        total_h += th + (line_gap if idx_l > 0 else 0)
+
+    if pos_y is None or (isinstance(pos_y, str) and pos_y.strip().lower() == "center"):
+        y_start = int((1920 - total_h) / 2)
+    else:
+        y_start = int(pos_y)
+
+    y = y_start
+    for ln, tw, th in line_metrics:
         x = int((1080 - tw) / 2)
         draw.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
         draw.text((x, y), ln, font=font, fill=(*fill_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
         y += th + line_gap
 
+    y_end = y - line_gap if line_metrics else y_start
     img.save(out_png, "PNG")
 
-    # 改行品質の機械チェック
+    # 改行・表記品質の機械チェック
     break_issues = []
     if len(wrapped) >= 3:
         break_issues.append(f"3行以上（{len(wrapped)}行）になっています。1カット2行以内に収めてください")
     if len(wrapped) >= 2 and len(wrapped[-1]) <= 2:
-        break_issues.append(f"最終行が孤立文字（'{wrapped[-1]}'）です。文節で改行位置を調整してください")
+        break_issues.append(f"最終行が孤立文字（'{wrapped[-1]}'）です。句読点を打つ位置で改行を調整してください")
     for idx_l, ln in enumerate(wrapped):
+        if "、" in ln or "。" in ln:
+            break_issues.append(f"{idx_l+1}行目に句読点（、。）が含まれています。テロップは句読点なしにし、改行位置で区切ってください")
         if idx_l > 0 and ln and ln[0] in KINSOKU_HEAD:
             break_issues.append(f"{idx_l+1}行目の先頭が禁則文字（'{ln[0]}'）です")
 
     return {
         "lines": wrapped,
         "max_width_px": max_measured_w,
-        "y_start": pos_y,
-        "y_end": y,
+        "y_start": y_start,
+        "y_end": y_end,
         "within_x180_900": max_measured_w <= max_width,
-        "above_y1500": y <= 1500,
+        "above_y1500": y_end <= 1500,
         "break_issues": break_issues,
     }
 
@@ -411,7 +425,9 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
                 slow = float(c.get("slow_pts", 1.0))
                 sw = int(1080 * zoom // 2) * 2
                 sh = int(1920 * zoom // 2) * 2
-                pos_y = int(c.get("telop_y", 1240))
+                raw_telop_y = c.get("telop_y", "center")
+                pos_y: int | str = "center" if raw_telop_y in (None, "", "center") else int(raw_telop_y)
+                drawtext_y = "(h-text_h)/2" if pos_y == "center" else str(pos_y)
                 telop_text = (c.get("telop") or "").strip()
 
                 base_vf = [
@@ -483,7 +499,7 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
                             f"{cur_label}drawtext=fontfile='{escape_drawtext_path(font_path)}':"
                             f"textfile='{escape_drawtext_path(txt_file)}':"
                             f"fontsize=68:fontcolor={text_color_hex}:borderw=8:bordercolor=black:"
-                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={pos_y}[vout]"
+                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={drawtext_y}[vout]"
                         )
                         cur_label = "[vout]"
 
@@ -497,7 +513,7 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
                             f"drawtext=fontfile='{escape_drawtext_path(font_path)}':"
                             f"textfile='{escape_drawtext_path(txt_file)}':"
                             f"fontsize=68:fontcolor={text_color_hex}:borderw=8:bordercolor=black:"
-                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={pos_y}"
+                            f"shadowx=3:shadowy=3:line_spacing=12:x=(w-text_w)/2:y={drawtext_y}"
                         )
                     cmd = [
                         "ffmpeg", "-y", "-v", "error",
