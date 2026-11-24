@@ -337,10 +337,8 @@ def render(plan: dict, out_dir: str) -> dict:
 
         est_final_sec = total_pre_speed / speed
         warnings = []
-        if est_final_sec > 25.5:
-            warnings.append(f"完成見込み尺 {est_final_sec:.2f}秒 が上限25秒を超過しています（台本削減推奨）")
-        elif est_final_sec < 14.5:
-            warnings.append(f"完成見込み尺 {est_final_sec:.2f}秒 が目安15秒未満です")
+        if est_final_sec < 10.0:
+            warnings.append(f"完成見込み尺 {est_final_sec:.2f}秒 が10秒未満です")
 
         clip_list_file = os.path.join(work, "clips.txt")
         audio_list_file = os.path.join(work, "audios.txt")
@@ -504,10 +502,11 @@ def render(plan: dict, out_dir: str) -> dict:
                 ]
             )
 
-        contact_png = os.path.join(out_dir, f"{title}_contact_sheet.png")
-        run(["ffmpeg", "-y", "-v", "error", "-i", out_main, "-vf", "fps=1,scale=270:-1,tile=5x5", "-frames:v", "1", contact_png])
-
         final_dur = ffprobe_duration(out_main)
+        rows = max(3, int((final_dur + 4) // 5) + 1)
+        contact_png = os.path.join(out_dir, f"{title}_contact_sheet.png")
+        run(["ffmpeg", "-y", "-v", "error", "-i", out_main, "-vf", f"fps=1,scale=270:-1,tile=5x{rows}", "-frames:v", "1", contact_png])
+
         loud_main = measure_ebur128(out_main)
         loud_nar = measure_ebur128(out_nar)
 
@@ -518,7 +517,6 @@ def render(plan: dict, out_dir: str) -> dict:
             "font_used": font_path,
             "speed": speed,
             "final_duration_sec": round(final_dur, 2),
-            "duration_ok_15_25": 15.0 <= final_dur <= 25.0,
             "outputs": {
                 "main_sfx_mp4": out_main,
                 "nar_only_mp4": out_nar,
