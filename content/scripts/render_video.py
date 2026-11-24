@@ -110,37 +110,126 @@ def ensure_cut_audio(cut: dict, voice: str, work_dir: str) -> str:
     return out_wav
 
 
+KINSOKU_HEAD = set("っゃゅょぁぃぅぇぉッャュョァィゥェォー、。！？!?」』）)].,・…")
+PARTICLES = ("から", "まで", "より", "けど", "のに", "ので", "って", "には", "では", "とは", "は", "が", "を", "に", "で", "と", "へ", "の", "も", "、", "。", "！", "？")
+
+
+def _char_class(ch: str) -> str:
+    code = ord(ch)
+    if 0x4E00 <= code <= 0x9FFF:
+        return "kanji"
+    if 0x30A0 <= code <= 0x30FF or ch == "ー":
+        return "kata"
+    if 0x3040 <= code <= 0x309F:
+        return "hira"
+    if ch.isascii() and ch.isalnum():
+        return "alnum"
+    return "other"
+
+
+def _find_best_break(text: str, draw, font, stroke_w: int, max_width: int) -> int:
+    """単語分断・禁則違反・孤立文字(1〜2文字)を避けて自然な文節切れ目を選ぶ"""
+    n = len(text)
+    # まずmax_widthに収まる最大インデックスを調べる
+    max_fit = 0
+    for i in range(1, n + 1):
+        bbox = draw.textbbox((0, 0), text[:i], font=font, stroke_width=stroke_w)
+        if (bbox[2] - bbox[0]) <= max_width:
+            max_fit = i
+        else:
+            break
+    if max_fit >= n:
+        return n
+    if max_fit <= 2:
+        return max(1, max_fit)
+
+    # 残り部分も1行に収まりやすいよう、理想的な分割位置（中央寄り）を目標にする
+    target = max(3, min(max_fit, round(n / 2)))
+    best_idx = None
+    best_score = -10**9
+
+    for i in range(2, max_fit + 1):
+        left = text[:i]
+        right = text[i:]
+        if not right:
+            continue
+        # 行頭禁則文字が次行の先頭に来る位置は強く避ける
+        if right[0] in KINSOKU_HEAD:
+            continue
+
+        score = 0.0
+        # 1) 読点・句点・感嘆符・スペースの直後は最優先
+        if left[-1] in "、。！？!? 　":
+            score += 100
+        # 2) 助詞・接続語の直後
+        elif any(left.endswith(p) for p in PARTICLES):
+            score += 65
+        # 3) 文字種の切れ目（例: 漢字/カタカナ/英数字 -> ひらがな、または逆）
+        elif _char_class(left[-1]) != _char_class(right[0]):
+            # ただし「数字＋助数詞(7つ/1個)」や「漢字＋送り仮名(言わ/れた)」の分断は減点
+            if _char_class(left[-1]) == "alnum" and _char_class(right[0]) == "hira":
+                score -= 20
+            elif _char_class(left[-1]) == "kanji" and _char_class(right[0]) == "hira":
+                score += 5
+            else:
+                score += 40
+        else:
+            # 同じ文字種（特にカタカナ・漢字・英数字の単語途中）は強く減点
+            if _char_class(left[-1]) in ("kata", "kanji", "alnum"):
+                score -= 60
+            else:
+                score -= 10
+
+        # 4) 孤立文字（左または右が1〜2文字だけ）を強く減点
+        if len(right) <= 2 or len(left) <= 2:
+            score -= 80
+        # 5) 左右バランス（中央に近いほど読みやすい）
+        score -= abs(i - target) * 6.0
+
+        if score > best_score:
+            best_score = score
+            best_idx = i
+
+    return best_idx if best_idx is not None else max_fit
+
+
+def wrap_japanese_telop(text: str, draw, font, stroke_w: int, max_width: int) -> list[str]:
+    """明示的な \n を尊重しつつ、幅超過時のみ日本語の文節・バランスで改行する"""
+    raw_lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    wrapped: list[str] = []
+    for ln in raw_lines:
+        cur = ln
+        while cur:
+            bbox = draw.textbbox((0, 0), cur, font=font, stroke_width=stroke_w)
+            if (bbox[2] - bbox[0]) <= max_width:
+                wrapped.append(cur)
+                break
+            idx = _find_best_break(cur, draw, font, stroke_w, max_width)
+            if idx <= 0 or idx >= len(cur):
+                wrapped.append(cur)
+                break
+            wrapped.append(cur[:idx].rstrip(" 　"))
+            cur = cur[idx:].lstrip(" 　")
+    return wrapped
+
+
 def render_telop_png(
     text: str,
     font_path: str,
     out_png: str,
     pos_y: int = 1240,
-    font_size: int = 68,
+    font_size: int = 64,
     fill_rgb: tuple[int, int, int] = (255, 255, 255),
     max_width: int = 720,
 ) -> dict:
-    """1080x1920 透明PNGにテロップを描画し、実測幅(px)と安全領域収まりを返す"""
+    """1080x1920 透明PNGにテロップを描画し、実測幅(px)・改行品質・安全領域収まりを返す"""
     img = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype(font_path, font_size)
     stroke_w = 8
     line_gap = 14
 
-    raw_lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
-    # 指定幅(x=180..900 => 720px)を超える行は字を小さくせず自動で改行
-    wrapped = []
-    for ln in raw_lines:
-        cur = ""
-        for ch in ln:
-            test = cur + ch
-            bbox = draw.textbbox((0, 0), test, font=font, stroke_width=stroke_w)
-            if cur and (bbox[2] - bbox[0]) > max_width:
-                wrapped.append(cur)
-                cur = ch
-            else:
-                cur = test
-        if cur:
-            wrapped.append(cur)
+    wrapped = wrap_japanese_telop(text, draw, font, stroke_w, max_width)
 
     y = pos_y
     max_measured_w = 0
@@ -150,13 +239,22 @@ def render_telop_png(
         th = bbox[3] - bbox[1]
         max_measured_w = max(max_measured_w, tw)
         x = int((1080 - tw) / 2)
-        # 影
         draw.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
-        # 本体＋黒縁
         draw.text((x, y), ln, font=font, fill=(*fill_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
         y += th + line_gap
 
     img.save(out_png, "PNG")
+
+    # 改行品質の機械チェック
+    break_issues = []
+    if len(wrapped) >= 3:
+        break_issues.append(f"3行以上（{len(wrapped)}行）になっています。1カット2行以内に収めてください")
+    if len(wrapped) >= 2 and len(wrapped[-1]) <= 2:
+        break_issues.append(f"最終行が孤立文字（'{wrapped[-1]}'）です。文節で改行位置を調整してください")
+    for idx_l, ln in enumerate(wrapped):
+        if idx_l > 0 and ln and ln[0] in KINSOKU_HEAD:
+            break_issues.append(f"{idx_l+1}行目の先頭が禁則文字（'{ln[0]}'）です")
+
     return {
         "lines": wrapped,
         "max_width_px": max_measured_w,
@@ -164,6 +262,7 @@ def render_telop_png(
         "y_end": y,
         "within_x180_900": max_measured_w <= max_width,
         "above_y1500": y <= 1500,
+        "break_issues": break_issues,
     }
 
 
@@ -317,6 +416,8 @@ def render(plan: dict, out_dir: str) -> dict:
                         telop_checks.append({"cut": cid, **t_info})
                         if not t_info["above_y1500"]:
                             warnings.append(f"Cut {cid}: テロップ下端 y={t_info['y_end']} が y1500 を超えています")
+                        for bi in t_info.get("break_issues", []):
+                            warnings.append(f"Cut {cid}: {bi}")
                         cmd += ["-loop", "1", "-t", f"{dur:.4f}", "-i", png_path]
                         fc_parts.append(f"{cur_label}[{next_idx}:v]overlay=0:0:shortest=1[vout]")
                         cur_label = "[vout]"
