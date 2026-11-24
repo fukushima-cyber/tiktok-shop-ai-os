@@ -301,7 +301,45 @@ def validate_real_video_source(src: str, cid: int) -> None:
         )
 
 
-def render(plan: dict, out_dir: str) -> dict:
+def normalize_jp_for_compare(text: str) -> str:
+    return re.sub(r"[\s、。！？!?「」『』（）()\n・ー\-]+", "", text or "").lower()
+
+
+def verify_audio_with_whisper(cut_metas: list[dict], model_size: str = "small") -> tuple[list[dict], list[str]]:
+    try:
+        from faster_whisper import WhisperModel
+    except Exception:
+        return ([{"status": "skipped", "reason": "faster-whisper not installed"}], [])
+
+    from difflib import SequenceMatcher
+    model = WhisperModel(model_size, device="cpu", compute_type="int8")
+    checks = []
+    warns = []
+    for m in cut_metas:
+        c = m["cut"]
+        cid = c["id"]
+        segs, _ = model.transcribe(m["wav"], language="ja", vad_filter=False)
+        heard = "".join(s.text.strip() for s in segs).strip()
+        exp_telop = (c.get("telop") or "").replace("\n", "")
+        exp_read = (c.get("reading") or "")
+        n_heard = normalize_jp_for_compare(heard)
+        r_telop = SequenceMatcher(None, normalize_jp_for_compare(exp_telop), n_heard).ratio() if exp_telop else 0.0
+        r_read = SequenceMatcher(None, normalize_jp_for_compare(exp_read), n_heard).ratio() if exp_read else 0.0
+        best_ratio = round(max(r_telop, r_read), 2)
+        ok = best_ratio >= 0.45 and bool(n_heard)
+        checks.append({
+            "cut": cid,
+            "expected": exp_telop or exp_read,
+            "transcribed": heard,
+            "match_ratio": best_ratio,
+            "ok": ok,
+        })
+        if not ok:
+            warns.append(f"Cut {cid}: 音声文字起こし不一致の疑い（期待: '{exp_telop}' / 認識: '{heard}' / ratio={best_ratio}）")
+    return checks, warns
+
+
+def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model: str = "small") -> dict:
     os.makedirs(out_dir, exist_ok=True)
     speed = float(plan.get("speed", 1.2))
     color_mode = plan.get("color_mode", "sdr").lower()
@@ -339,6 +377,13 @@ def render(plan: dict, out_dir: str) -> dict:
         warnings = []
         if est_final_sec < 10.0:
             warnings.append(f"完成見込み尺 {est_final_sec:.2f}秒 が10秒未満です")
+
+        do_whisper = bool(verify_whisper or plan.get("verify_whisper", False))
+        whisper_checks = []
+        if do_whisper:
+            w_model = str(plan.get("whisper_model") or whisper_model or "small")
+            whisper_checks, w_warns = verify_audio_with_whisper(cut_metas, model_size=w_model)
+            warnings.extend(w_warns)
 
         clip_list_file = os.path.join(work, "clips.txt")
         audio_list_file = os.path.join(work, "audios.txt")
@@ -523,6 +568,7 @@ def render(plan: dict, out_dir: str) -> dict:
                 "contact_sheet_png": contact_png,
             },
             "telop_checks": telop_checks,
+            "whisper_checks": whisper_checks,
             "loudness_main": loud_main,
             "loudness_nar_only": loud_nar,
             "sfx_count": len(sfx_entries),
@@ -535,14 +581,51 @@ def render(plan: dict, out_dir: str) -> dict:
         return report
 
 
+def render_with_variants(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model: str = "small") -> dict:
+    variants = plan.get("hook_variants") or []
+    if not variants:
+        return render(plan, out_dir, verify_whisper=verify_whisper, whisper_model=whisper_model)
+
+    base_title = plan.get("title", "tiktok_output")
+    base_cuts = list(plan.get("cuts") or [])
+    if not base_cuts:
+        raise ValueError("cuts が空です。")
+
+    results = []
+    for idx, v in enumerate(variants, start=1):
+        label = re.sub(r"[^\w\-]+", "_", str(v.get("label") or f"hook{idx}"))
+        v_cut1 = dict(base_cuts[0])
+        v_cut1.update(v.get("cut1") or v)
+        v_cut1["id"] = base_cuts[0].get("id", 1)
+        v_plan = dict(plan)
+        v_plan["title"] = f"{base_title}_{label}"
+        v_plan["cuts"] = [v_cut1] + base_cuts[1:]
+        v_plan.pop("hook_variants", None)
+        results.append(render(v_plan, out_dir, verify_whisper=verify_whisper, whisper_model=whisper_model))
+
+    summary = {
+        "title": base_title,
+        "mode": "hook_variants_batch",
+        "variant_count": len(results),
+        "variants": results,
+    }
+    safe_title = re.sub(r"[^\w\-]+", "_", base_title)
+    summary_path = os.path.join(out_dir, f"{safe_title}_variants_summary.json")
+    with open(summary_path, "w", encoding="utf-8") as sf:
+        json.dump(summary, sf, ensure_ascii=False, indent=2)
+    return summary
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="TikTok Shop OS JSON-driven video renderer")
     parser.add_argument("--plan", required=True, help="Path to plan.json")
     parser.add_argument("--out-dir", default="./output", help="Output directory")
+    parser.add_argument("--verify-whisper", action="store_true", help="Verify generated TTS audio against text using faster-whisper")
+    parser.add_argument("--whisper-model", default="small", help="faster-whisper model size (tiny/base/small)")
     args = parser.parse_args()
     with open(args.plan, encoding="utf-8") as f:
         plan = json.load(f)
-    rep = render(plan, args.out_dir)
+    rep = render_with_variants(plan, args.out_dir, verify_whisper=args.verify_whisper, whisper_model=args.whisper_model)
     print(json.dumps(rep, ensure_ascii=False, indent=2))
 
 

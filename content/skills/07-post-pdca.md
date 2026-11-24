@@ -63,7 +63,7 @@ python3 account_tracker_ref.py sync --handle @your_account --state ./account_sta
   ```bash
   python3 account_tracker_ref.py export-candidates --patterns ./ledger/local_patterns.json --out ./ledger/os_pattern_proposals.md
   ```
-- 毎回 `account_report.md` の **「勝ち型」「撤退済み型」「直近使用型」** をそのまま Skill 02 へ渡し、以下の次回ブリーフを出力する。
+- 毎回 `account_report.md` の **「勝ち型」「撤退済み型」「直近使用型」** をそのまま Skill 02 へ渡し、さらに依頼者の採用・却下フィードバックや48h実測で分かった強い表現／弱い表現を **`ledger/exemplars.md`（Good/Bad 対照ペア学習台帳：`./templates/exemplars-template.md`）** へ追記して次回の企画・執筆・独立レビューへ還流する。
 
 ```markdown
 # 48h自動集計 & 次回制作ブリーフ（@アカウント名）
