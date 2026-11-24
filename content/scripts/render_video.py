@@ -305,6 +305,16 @@ def normalize_jp_for_compare(text: str) -> str:
     return re.sub(r"[\s、。！？!?「」『』（）()\n・ー\-]+", "", text or "").lower()
 
 
+def decode_audio_16k_f32(path: str):
+    import numpy as np
+    res = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", path, "-ar", "16000", "-ac", "1", "-f", "f32le", "-"],
+        check=True,
+        stdout=subprocess.PIPE,
+    )
+    return np.frombuffer(res.stdout, dtype=np.float32)
+
+
 def verify_audio_with_whisper(cut_metas: list[dict], model_size: str = "small") -> tuple[list[dict], list[str]]:
     try:
         from faster_whisper import WhisperModel
@@ -318,7 +328,8 @@ def verify_audio_with_whisper(cut_metas: list[dict], model_size: str = "small") 
     for m in cut_metas:
         c = m["cut"]
         cid = c["id"]
-        segs, _ = model.transcribe(m["wav"], language="ja", vad_filter=False)
+        audio_np = decode_audio_16k_f32(m["wav"])
+        segs, _ = model.transcribe(audio_np, language="ja", vad_filter=False)
         heard = "".join(s.text.strip() for s in segs).strip()
         exp_telop = (c.get("telop") or "").replace("\n", "")
         exp_read = (c.get("reading") or "")

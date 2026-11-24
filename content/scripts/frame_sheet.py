@@ -117,11 +117,18 @@ def make_frame_sheet(
 def transcribe_video(video_path: str, model_size: str = "small") -> dict:
     try:
         from faster_whisper import WhisperModel
+        import numpy as np
     except Exception:
         return {"status": "skipped", "reason": "faster-whisper is not installed"}
 
+    res = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", video_path, "-ar", "16000", "-ac", "1", "-f", "f32le", "-"],
+        check=True,
+        stdout=subprocess.PIPE,
+    )
+    audio_np = np.frombuffer(res.stdout, dtype=np.float32)
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, info = model.transcribe(video_path, language="ja", vad_filter=True)
+    segments, info = model.transcribe(audio_np, language="ja", vad_filter=True)
     items = []
     for seg in segments:
         items.append({
