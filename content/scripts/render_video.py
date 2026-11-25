@@ -215,33 +215,70 @@ def wrap_japanese_telop(text: str, draw, font, stroke_w: int, max_width: int) ->
     return wrapped
 
 
+COLOR_TAG_MAP = {
+    "yellow": (255, 228, 72),
+    "gold": (255, 214, 70),
+    "pink": (255, 130, 165),
+    "coral": (255, 118, 92),
+    "cyan": (110, 232, 255),
+    "white": (255, 255, 255),
+}
+INLINE_TAG_RE = re.compile(r"\{\{(yellow|gold|pink|coral|cyan|white):([^{}]+)\}\}")
+
+
+def strip_color_tags(text: str) -> str:
+    return INLINE_TAG_RE.sub(r"\2", text or "")
+
+
+def parse_color_runs(line: str, default_rgb: tuple[int, int, int]) -> list[tuple[str, tuple[int, int, int]]]:
+    runs: list[tuple[str, tuple[int, int, int]]] = []
+    pos = 0
+    for m in INLINE_TAG_RE.finditer(line):
+        if m.start() > pos:
+            runs.append((line[pos:m.start()], default_rgb))
+        col_name = m.group(1)
+        runs.append((m.group(2), COLOR_TAG_MAP.get(col_name, default_rgb)))
+        pos = m.end()
+    if pos < len(line):
+        runs.append((line[pos:], default_rgb))
+    return runs or [(line, default_rgb)]
+
+
 def render_telop_png(
     text: str,
     font_path: str,
     out_png: str,
     pos_y: int | str | None = "center",
-    font_size: int = 64,
+    font_size: int = 60,
     fill_rgb: tuple[int, int, int] = (255, 255, 255),
     max_width: int = 720,
 ) -> dict:
-    """1080x1920 透明PNGにテロップを描画し、実測幅(px)・改行品質・安全領域収まりを返す"""
+    """1080x1920 透明PNGにテロップを描画し、実測幅(px)・改行品質・安全領域収まりを返す（{{yellow:...}}等のインライン色強調対応）"""
     img = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     font = ImageFont.truetype(font_path, font_size)
-    stroke_w = 8
+    stroke_w = max(6, int(round(font_size * 0.125)))
     line_gap = 14
 
-    wrapped = wrap_japanese_telop(text, draw, font, stroke_w, max_width)
+    # インライン色タグがある場合は明示的な \n 改行を保ちつつ描画、ない場合は通常wrap
+    has_tags = bool(INLINE_TAG_RE.search(text or ""))
+    if has_tags:
+        raw_lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+        wrapped_raw = raw_lines
+        wrapped = [strip_color_tags(ln) for ln in raw_lines]
+    else:
+        wrapped = wrap_japanese_telop(text, draw, font, stroke_w, max_width)
+        wrapped_raw = wrapped
 
     line_metrics = []
     max_measured_w = 0
     total_h = 0
-    for idx_l, ln in enumerate(wrapped):
-        bbox = draw.textbbox((0, 0), ln, font=font, stroke_width=stroke_w)
+    for idx_l, (raw_ln, plain_ln) in enumerate(zip(wrapped_raw, wrapped)):
+        bbox = draw.textbbox((0, 0), plain_ln, font=font, stroke_width=stroke_w)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
         max_measured_w = max(max_measured_w, tw)
-        line_metrics.append((ln, tw, th))
+        line_metrics.append((raw_ln, plain_ln, tw, th))
         total_h += th + (line_gap if idx_l > 0 else 0)
 
     if pos_y is None or (isinstance(pos_y, str) and pos_y.strip().lower() == "center"):
@@ -250,10 +287,21 @@ def render_telop_png(
         y_start = int(pos_y)
 
     y = y_start
-    for ln, tw, th in line_metrics:
+    for raw_ln, plain_ln, tw, th in line_metrics:
         x = int((1080 - tw) / 2)
-        draw.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
-        draw.text((x, y), ln, font=font, fill=(*fill_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
+        if not has_tags:
+            draw.text((x + 3, y + 3), plain_ln, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
+            draw.text((x, y), plain_ln, font=font, fill=(*fill_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
+        else:
+            runs = parse_color_runs(raw_ln, fill_rgb)
+            # Measure exact kerning positions using prefix widths
+            prefix = ""
+            for seg, seg_rgb in runs:
+                pref_w = int(draw.textlength(prefix, font=font)) if prefix else 0
+                sx = x + pref_w
+                draw.text((sx + 3, y + 3), seg, font=font, fill=(0, 0, 0, 190), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 190))
+                draw.text((sx, y), seg, font=font, fill=(*seg_rgb, 255), stroke_width=stroke_w, stroke_fill=(0, 0, 0, 255))
+                prefix += seg
         y += th + line_gap
 
     y_end = y - line_gap if line_metrics else y_start
@@ -347,7 +395,7 @@ def verify_audio_with_whisper(cut_metas: list[dict], model_size: str = "small") 
         audio_np = decode_audio_16k_f32(m["wav"])
         segs, _ = model.transcribe(audio_np, language="ja", vad_filter=False)
         heard = "".join(s.text.strip() for s in segs).strip()
-        exp_telop = (c.get("telop") or "").replace("\n", "")
+        exp_telop = strip_color_tags((c.get("telop") or "").replace("\n", ""))
         exp_read = (c.get("reading") or "")
         n_heard = normalize_jp_for_compare(heard)
         r_telop = SequenceMatcher(None, normalize_jp_for_compare(exp_telop), n_heard).ratio() if exp_telop else 0.0
@@ -484,7 +532,8 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
 
                     if telop_text and use_pil_overlay:
                         png_path = os.path.join(work, f"telop_{cid:02d}.png")
-                        t_info = render_telop_png(telop_text, font_path, png_path, pos_y=pos_y, fill_rgb=fill_rgb)
+                        f_sz = int(c.get("font_size") or plan.get("font_size") or 60)
+                        t_info = render_telop_png(telop_text, font_path, png_path, pos_y=pos_y, font_size=f_sz, fill_rgb=fill_rgb)
                         telop_checks.append({"cut": cid, **t_info})
                         if not t_info["above_y1500"]:
                             warnings.append(f"Cut {cid}: テロップ下端 y={t_info['y_end']} が y1500 を超えています")
@@ -560,19 +609,28 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
 
         out_main = os.path.join(out_dir, f"{title}_main_sfx.mp4")
         out_nar = os.path.join(out_dir, f"{title}_nar_only.mp4")
+        out_silent = os.path.join(out_dir, f"{title}_silent_for_tiktok.mp4")
+        v_enc_final = (
+            ["-c:v", "libx265", "-profile:v", "main10", "-pix_fmt", "yuv420p10le", "-crf", "18", "-tag:v", "hvc1",
+             "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-color_range", "tv"]
+            if color_mode == "hlg"
+            else ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
+        )
         for wav_in, mp4_out in [(mixed_wav, out_main), (concat_nar, out_nar)]:
-            v_enc = (
-                ["-c:v", "libx265", "-profile:v", "main10", "-pix_fmt", "yuv420p10le", "-crf", "18", "-tag:v", "hvc1",
-                 "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-color_range", "tv"]
-                if color_mode == "hlg"
-                else ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
-            )
             run(
                 [
                     "ffmpeg", "-y", "-v", "error", "-i", concat_vid, "-i", wav_in,
                     "-filter_complex", f"[0:v]setpts=PTS/{speed},fps=30[v];[1:a]atempo={speed},alimiter=limit=0.84:attack=1:release=50[a]",
-                    "-map", "[v]", "-map", "[a]", *v_enc,
+                    "-map", "[v]", "-map", "[a]", *v_enc_final,
                     "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", mp4_out,
+                ]
+            )
+        if bool(plan.get("export_silent", True)):
+            run(
+                [
+                    "ffmpeg", "-y", "-v", "error", "-i", concat_vid,
+                    "-vf", f"setpts=PTS/{speed},fps=30", "-an", *v_enc_final,
+                    "-movflags", "+faststart", out_silent,
                 ]
             )
 
@@ -594,6 +652,7 @@ def render(plan: dict, out_dir: str, verify_whisper: bool = False, whisper_model
             "outputs": {
                 "main_sfx_mp4": out_main,
                 "nar_only_mp4": out_nar,
+                "silent_for_tiktok_mp4": out_silent if bool(plan.get("export_silent", True)) else None,
                 "contact_sheet_png": contact_png,
             },
             "telop_checks": telop_checks,

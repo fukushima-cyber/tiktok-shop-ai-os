@@ -254,7 +254,7 @@ def fetch_red(url: str, out_dir: str, sheet_dir: str = "") -> dict:
     return out
 
 
-def make_overlay(kind: str, text: str, out_png: str, subtext: str = "") -> dict:
+def make_overlay(kind: str, text: str, out_png: str, subtext: str = "", footer: str = "") -> dict:
     os.makedirs(os.path.dirname(os.path.abspath(out_png)), exist_ok=True)
     if kind == "comment":
         # TikTok comment-reply style pill card (clean white card with subtle shadow)
@@ -272,6 +272,59 @@ def make_overlay(kind: str, text: str, out_png: str, subtext: str = "") -> dict:
         for line in lines[:2]:
             d.text((38, y), line, font=f_main, fill=(24, 24, 28, 255))
             y += 48
+        im.save(out_png)
+    elif kind == "review":
+        from PIL import ImageFilter
+        # 2x supersampled clean white social-proof / review summary / price card with tag chip & optional legal footer
+        S = 2
+        has_footer = bool((footer or "").strip())
+        W, H = 780 * S, (238 if has_footer else 206) * S
+        im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        pad = 24 * S
+        rx0, ry0, rx1, ry1 = pad, 16 * S, W - pad, H - 24 * S
+        rad = 26 * S
+
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(sh)
+        sd.rounded_rectangle([rx0, ry0 + 8 * S, rx1, ry1 + 8 * S], radius=rad, fill=(0, 0, 0, 120))
+        sh = sh.filter(ImageFilter.GaussianBlur(radius=12 * S))
+        im.alpha_composite(sh)
+
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle([rx0, ry0, rx1, ry1], radius=rad, fill=(255, 255, 255, 248), outline=(232, 234, 240, 255), width=3 * S)
+
+        f_chip = load_jp_font(19 * S, heavy=True)
+        f_sub = load_jp_font(22 * S, heavy=True)
+        f_main = load_jp_font(30 * S, heavy=True)
+        f_foot = load_jp_font(18 * S, heavy=False)
+
+        # Header chip ("REVIEW" or custom prefix split by "|", e.g. "公式実績|カームセブン単体")
+        raw_sub = (subtext or "REVIEW|高評価レビュー傾向").strip()
+        if "|" in raw_sub:
+            chip_lbl, header = [x.strip() for x in raw_sub.split("|", 1)]
+        else:
+            chip_lbl, header = "REVIEW", raw_sub
+
+        cbb = d.textbbox((0, 0), chip_lbl, font=f_chip)
+        cw, ch = cbb[2] - cbb[0], cbb[3] - cbb[1]
+        cx0, cy0 = rx0 + 26 * S, ry0 + 20 * S
+        chip_w = cw + 24 * S
+        chip_h = 34 * S
+        chip_bg = (255, 44, 85, 255) if any(k in chip_lbl for k in ("公式", "価格", "SALE")) else (24, 26, 34, 255)
+        d.rounded_rectangle([cx0, cy0, cx0 + chip_w, cy0 + chip_h], radius=10 * S, fill=chip_bg)
+        d.text((cx0 + (chip_w - cw) // 2 - cbb[0], cy0 + (chip_h - ch) // 2 - cbb[1] - 1 * S), chip_lbl, font=f_chip, fill=(255, 255, 255, 255))
+        d.text((cx0 + chip_w + 14 * S, cy0 + 4 * S), header, font=f_sub, fill=(92, 96, 108, 255))
+
+        lines = text.split("\\n") if "\\n" in text else text.split("\n")
+        y = ry0 + 68 * S
+        for line in lines[:2]:
+            d.text((rx0 + 26 * S, y), line, font=f_main, fill=(22, 24, 30, 255))
+            y += 45 * S
+
+        if has_footer:
+            d.text((rx0 + 26 * S, ry1 - 36 * S), footer.strip(), font=f_foot, fill=(120, 124, 134, 255))
+
+        im = im.resize((W // S, H // S), Image.Resampling.LANCZOS)
         im.save(out_png)
     elif kind == "badge":
         from PIL import ImageFilter
@@ -411,9 +464,10 @@ def main() -> None:
     p_red.add_argument("--sheet-dir", default="")
 
     p_ov = sub.add_parser("make-overlay")
-    p_ov.add_argument("--kind", choices=["comment", "badge"], required=True)
+    p_ov.add_argument("--kind", choices=["comment", "badge", "review"], required=True)
     p_ov.add_argument("--text", required=True)
     p_ov.add_argument("--subtext", default="")
+    p_ov.add_argument("--footer", default="")
     p_ov.add_argument("--out", required=True)
 
     args = p.parse_args()
@@ -426,7 +480,7 @@ def main() -> None:
     elif args.cmd == "fetch-red":
         print(json.dumps(fetch_red(args.url, args.out_dir, args.sheet_dir), ensure_ascii=False, indent=2))
     elif args.cmd == "make-overlay":
-        print(json.dumps(make_overlay(args.kind, args.text, args.out, args.subtext), ensure_ascii=False, indent=2))
+        print(json.dumps(make_overlay(args.kind, args.text, args.out, args.subtext, args.footer), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
