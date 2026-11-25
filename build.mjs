@@ -65,8 +65,8 @@ const DOCS = [
   { id: 'tpl-assets', group: '任意上書きテンプレ', title: '独自素材用・素材一覧テンプレ', path: 'templates/assets-template.md', badge: 'コピー用', raw: readContent('templates/assets-template.md') },
   { id: 'script-preflight', group: '自動化スクリプト', title: 'preflight_muse.sh（環境診断・日本語フォント確認）', path: 'scripts/preflight_muse.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/preflight_muse.sh') + '\n```' },
   { id: 'script-frame-sheet', group: '自動化スクリプト', title: 'frame_sheet.py（0.5秒精密フレームシート & 参考動画構造抽出）', path: 'scripts/frame_sheet.py', badge: 'Python', raw: '```python\n' + readContent('scripts/frame_sheet.py') + '\n```' },
-  { id: 'script-broll', group: '自動化スクリプト', title: 'broll_hunter.py（Mixkit/Pexels/RED実写B-roll収集・検品・吹き出し生成）', path: 'scripts/broll_hunter.py', badge: 'Python', raw: '```python\n' + readContent('scripts/broll_hunter.py') + '\n```' },
-  { id: 'script-render', group: '自動化スクリプト', title: 'render_video.py（本番レンダリング・Whisper照合・フック3案一括）', path: 'scripts/render_video.py', badge: 'Python', raw: '```python\n' + readContent('scripts/render_video.py') + '\n```' },
+  { id: 'script-broll', group: '自動化スクリプト', title: 'broll_hunter.py（実写B-roll収集・検品・高精細セールバッジ/吹き出し生成）', path: 'scripts/broll_hunter.py', badge: 'Python', raw: '```python\n' + readContent('scripts/broll_hunter.py') + '\n```' },
+  { id: 'script-render', group: '自動化スクリプト', title: 'render_video.py（中央テロップ・句読点検査・カタコト防止TTS・Whisper照合）', path: 'scripts/render_video.py', badge: 'Python', raw: '```python\n' + readContent('scripts/render_video.py') + '\n```' },
   { id: 'script-ffmpeg', group: '自動化スクリプト', title: 'edit_pipeline_ref.sh（Drive/RED収集・自動検品・カット）', path: 'scripts/edit_pipeline_ref.sh', badge: 'Bash', raw: '```bash\n' + readContent('scripts/edit_pipeline_ref.sh') + '\n```' },
   { id: 'script-tracker', group: '自動化スクリプト', title: 'account_tracker_ref.py（自アカウント自動集計・48h PDCA）', path: 'scripts/account_tracker_ref.py', badge: 'Python', raw: '```python\n' + readContent('scripts/account_tracker_ref.py') + '\n```' },
 ];
@@ -350,8 +350,45 @@ const html = `<!doctype html>
 
       <div class="section-card">
         <h2>AIが自動で辿る7つのSkill（クリックで中身を確認）</h2>
-        <p class="section-sub">アカウント固有の指定がない場合は、検証済みの標準プリセット（顔出し不可・Nanami声・1.2倍速・-14LUFS・効果音固定7種）が自動適用されます。</p>
+        <p class="section-sub">アカウント固有の指定がない場合は、検証済みの標準プリセット（顔出し不可・Nanami声・1.2倍速・-14LUFS・効果音固定7種・テロップ中央固定）が自動適用されます。</p>
         <div class="flow-strip" id="flowStrip"></div>
+      </div>
+
+      <div class="section-card" style="margin-top:20px;">
+        <h2>実運用フィードバック反映済みの確定ルール（最新）</h2>
+        <p class="section-sub">実動画の書き出し確認とTikTok Shop実測データから反映した固定基準です。AIは <code>llms.txt</code> と各Skillから自動で参照します。</p>
+        <div class="human-steps" style="margin-top:14px;padding-top:14px;">
+          <div class="h-step">
+            <div class="h-step-num">EDIT RULE 01</div>
+            <div class="h-step-title">テロップ中央固定・句読点ゼロ・読点位置改行</div>
+            <p class="h-step-desc">全カット画面ど真ん中（<code>center</code>）固定。テロップに「、」「。」は入れず、句読点を打つ自然な区切り位置で1行10文字以内・最大2行に改行します。</p>
+          </div>
+          <div class="h-step">
+            <div class="h-step-num">EDIT RULE 02</div>
+            <div class="h-step-title">左下白矢印の正確な位置 &amp; 高精細セールバッジ</div>
+            <p class="h-step-desc">矢印はTikTok Shop商品リンク直上（<code>x=80〜380, y=1130〜1410</code>）に配置してUI被りを防止。バッジは2倍解像度グラデーション版（通常SALE／ブラックフライデー対応）を使用します。</p>
+          </div>
+          <div class="h-step">
+            <div class="h-step-num">VOICE RULE 03</div>
+            <div class="h-step-title">Neural TTSのカタコト防止（自然漢字入力）</div>
+            <p class="h-step-desc">Nanami音声にはスペースなしの自然な漢字かな混じり文を渡し、誤読する語（<code>今トクトク→いまトクトク</code> 等）だけピンポイント置換＋Whisper照合します。</p>
+          </div>
+          <div class="h-step">
+            <div class="h-step-num">PLAN RULE 04</div>
+            <div class="h-step-title">フォーマット分離＋全型ベネフィット必須</div>
+            <p class="h-step-desc">複数案は同じ解説構成の言い換えを禁止し、15秒速報・28秒逆転後悔・36秒まとめ買い実演などフォーマットとベネフィット軸の両方を別物にします（固定25秒上限なし）。</p>
+          </div>
+          <div class="h-step">
+            <div class="h-step-num">SALE RULE 05</div>
+            <div class="h-step-title">トクトクSALE・ブラックフライデー実測勝ち型</div>
+            <p class="h-step-desc">実測11本（最大739万再生・23〜75秒）に基づき、美容系で空いている食品・家電・日用品の勝ち型（買い時まとめ買い／後悔逆転／速報価格確認）を輸入します。</p>
+          </div>
+          <div class="h-step">
+            <div class="h-step-num">ASSET RULE 06</div>
+            <div class="h-step-title">実写B-roll×自社素材ハイブリッド</div>
+            <p class="h-step-desc">ベース映像は実写のみ（AI動画・静止画スライド禁止）。Mixkit/Pexels/RED実写B-rollと自社素材を組み合わせ、編集オーバーレイ（矢印・バッジ・吹き出し）で視認性を上げます。</p>
+          </div>
+        </div>
       </div>
     </section>
 
